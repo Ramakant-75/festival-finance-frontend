@@ -8,7 +8,7 @@ import PageHeader from '../components/PageHeader';
 import api from '../api/axios';
 
 const currentYear = new Date().getFullYear();
-const yearOptions = Array.from({ length: 5 }, (_, i) => currentYear - i);
+const yearOptions = Array.from({ length: 10 }, (_, i) => currentYear - i);
 
 const ManageDonations = () => {
   const [year, setYear] = useState(currentYear);
@@ -20,7 +20,7 @@ const ManageDonations = () => {
 
   useEffect(() => {
     fetchDonations(year);
-    fetchSummary();
+    fetchSummary(year);
   }, [year]);
 
   const fetchDonations = async (selectedYear) => {
@@ -33,9 +33,9 @@ const ManageDonations = () => {
     }
   };
 
-  const fetchSummary = async () => {
+  const fetchSummary = async (selectedYear) => {
     try {
-      const res = await api.get('/stats/summary');
+      const res = await api.get(`/stats/summary?year=${selectedYear}`);
       setSummary(res.data);
     } catch (err) {
       console.error('Error fetching summary');
@@ -98,6 +98,23 @@ const ManageDonations = () => {
               💰 Total Collection: ₹ {summary.totalDonations.toFixed(2)}
             </Typography>
           )}
+          <Button
+              variant="outlined"
+              size="small"
+              sx={{ ml: 2 }}
+              onClick={async () => {
+                try {
+                  const res = await api.get('/export/donations', {
+                    responseType: 'blob'
+                  });
+                  saveAs(new Blob([res.data]), 'donations.xlsx');
+                } catch (err) {
+                  alert("Failed to download donations report.");
+                }
+              }}
+            >
+              📤 Export Excel
+            </Button>
         </Box>
 
         <Table size="small" sx={{ mt: 2 }}>
@@ -130,11 +147,16 @@ const ManageDonations = () => {
 
                   <TableCell>
                     {isEditing ? (
-                      <TextField
-                        size="small"
-                        value={editRow.paymentMode}
-                        onChange={(e) => handleEditChange(e, 'paymentMode')}
-                      />
+                      <FormControl size="small" fullWidth>
+                        <Select
+                          value={editRow.paymentMode}
+                          onChange={(e) => handleEditChange(e, 'paymentMode')}
+                        >
+                          <MenuItem value="CASH">CASH</MenuItem>
+                          <MenuItem value="CHEQUE">CHEQUE</MenuItem>
+                          <MenuItem value="UPI">UPI</MenuItem>
+                        </Select>
+                      </FormControl>
                     ) : d.paymentMode}
                   </TableCell>
 

@@ -1,12 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import {
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
-  Paper, TextField, MenuItem, Button, Snackbar, Alert, Typography, Box
+  Paper, TextField, MenuItem, Button, Snackbar, Alert, Typography, Box,
+  FormControl,InputLabel,Select
 } from '@mui/material';
 import { saveAs } from 'file-saver';
 import api from '../api/axios';
 import MainLayout from '../layout/MainLayout';
 import PageHeader from '../components/PageHeader';
+
+const currentYear = new Date().getFullYear();
+const yearOptions = Array.from({ length: 10 }, (_, i) => currentYear - i);
+
 
 const categories = ["Decoration", "Food", "Sound", "Lighting", "Misc"];
 
@@ -17,17 +22,22 @@ const ManageExpenses = () => {
   const [success, setSuccess] = useState(false);
   const [updatedRowId, setUpdatedRowId] = useState(null);
   const [total, setTotal] = useState(0);
+  const [year, setYear] = useState(currentYear);
 
   useEffect(() => {
-    fetchExpenses();
-  }, []);
+    fetchExpenses(year);
+  }, [year]);
 
-  const fetchExpenses = async () => {
-    const res = await api.get('/expenses');
-    setExpenses(res.data);
-    const sum = res.data.reduce((acc, curr) => acc + curr.amount, 0);
-    setTotal(sum);
-  };
+  const fetchExpenses = async (selectedYear = year) => {
+    try {
+      const res = await api.get(`/expenses?year=${selectedYear}`);
+      setExpenses(res.data);
+      const sum = res.data.reduce((acc, curr) => acc + curr.amount, 0);
+      setTotal(sum);
+    } catch (err) {
+      alert("Error fetching expenses.");
+    }
+  };  
 
   const handleFieldChange = (id, field, value) => {
     setEdited(prev => ({
@@ -74,26 +84,77 @@ const ManageExpenses = () => {
     }
   };
 
-  const handleDownload = async (id) => {
+  // const handleDownload = async (expenseId, receiptId, filename) => {
+  //   try {
+  //     const response = await api.get(`/expenses/${expenseId}/receipts/${receiptId}`, {
+  //       responseType: 'blob'
+  //     });
+  //     const blob = new Blob([response.data]);
+  //     saveAs(blob, filename || `receipt-${expenseId}.jpg`);
+  //   } catch (err) {
+  //     alert("Failed to download receipt.");
+  //   }
+  // };
+  const handleDownload = async (expenseId, receiptId, filename) => {
     try {
-      const response = await api.get(`/expenses/${id}/receipt`, {
+      const response = await api.get(`/expenses/${expenseId}/receipts/${receiptId}`, {
         responseType: 'blob'
       });
       const blob = new Blob([response.data]);
-      saveAs(blob, `receipt-${id}.jpg`);
+      saveAs(blob, filename || `receipt-${receiptId}.jpg`);
     } catch (err) {
       alert("Failed to download receipt.");
     }
   };
+  
 
   return (
     <MainLayout title="Manage Expenses">
       <PageHeader />
       <Box sx={{ p: 3 }}>
-        <Typography variant="h5" gutterBottom>💸 Manage Festival Expenses</Typography>
-        <Typography variant="h6" color="primary" sx={{ mt: 1 }}>
-          🔢 Total Expenses: ₹ {total.toFixed(2)}
-        </Typography>
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+  <Box display="flex" gap={2} alignItems="center">
+    <Typography variant="h5">💸 Manage Festival Expenses</Typography>
+
+    <FormControl size="small">
+      <InputLabel>Select Year</InputLabel>
+      <Select
+        value={year}
+        label="Select Year"
+        onChange={(e) => setYear(e.target.value)}
+        sx={{ minWidth: 120 }}
+      >
+        {yearOptions.map(y => (
+          <MenuItem key={y} value={y}>{y}</MenuItem>
+        ))}
+      </Select>
+    </FormControl>
+  </Box>
+
+  <Box display="flex" alignItems="center">
+    <Typography variant="h6" color="primary">
+      🔢 Total Expenses: ₹ {total.toFixed(2)}
+    </Typography>
+
+    <Button
+      variant="outlined"
+      size="small"
+      sx={{ ml: 2 }}
+      onClick={async () => {
+        try {
+          const res = await api.get('/export/expenses', {
+            responseType: 'blob'
+          });
+          saveAs(new Blob([res.data]), 'expenses.xlsx');
+        } catch (err) {
+          alert("Failed to download expenses report.");
+        }
+      }}
+    >
+      📤 Export Excel
+    </Button>
+  </Box>
+</Box>
 
         <TableContainer component={Paper} sx={{ mt: 3 }}>
           <Table>
@@ -105,7 +166,7 @@ const ManageExpenses = () => {
                 <TableCell>Date</TableCell>
                 <TableCell>Description</TableCell>
                 <TableCell>Added By</TableCell>
-                <TableCell>Receipt</TableCell>
+                <TableCell>Receipts</TableCell>
                 <TableCell>Actions</TableCell>
               </TableRow>
             </TableHead>
@@ -168,15 +229,20 @@ const ManageExpenses = () => {
                     />
                   </TableCell>
 
-                  <TableCell>
-                    {e.hasReceipt ? (
-                      <Button
-                        size="small"
-                        variant="outlined"
-                        onClick={() => handleDownload(e.id)}
-                      >
-                        📎 View
-                      </Button>
+                                    <TableCell>
+                    {e.hasReceipt && e.receipts?.length > 0 ? (
+                      <Box display="flex" flexDirection="column" gap={1}>
+                        {e.receipts.map((r, idx) => (
+                          <Button
+                            key={r.id}
+                            size="small"
+                            variant="outlined"
+                            onClick={() => handleDownload(e.id, r.id, r.fileName)}
+                          >
+                            📎 {r.fileName || `Receipt ${idx + 1}`}
+                          </Button>
+                        ))}
+                      </Box>
                     ) : (
                       "No Receipt"
                     )}
