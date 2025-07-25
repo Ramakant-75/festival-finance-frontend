@@ -4,6 +4,8 @@ import {
   Table, TableBody, TableCell, TableHead, TableRow,
   TextField, Button, Snackbar, Alert, Paper, Box, Pagination, Stack
 } from '@mui/material';
+import { DatePicker, LocalizationProvider } from '@mui/lab';
+import AdapterDateFns from '@mui/lab/AdapterDateFns';
 import PageHeader from '../components/PageHeader';
 import api from '../api/axios';
 import { saveAs } from 'file-saver';
@@ -24,16 +26,23 @@ const ManageDonations = () => {
   const [pageSize, setPageSize] = useState(10);
   const [totalPages, setTotalPages] = useState(0);
 
-  useEffect(() => {
-    fetchDonations(year, page - 1, pageSize);
-    fetchSummary(year);
-  }, [year, page, pageSize]);
+  // Filter states
+  const [buildingFilter, setBuildingFilter] = useState('');
+  const [paymentModeFilter, setPaymentModeFilter] = useState('');
+  const [dateFilter, setDateFilter] = useState(null);
 
-  const fetchDonations = async (yr, pg, sz) => {
+  useEffect(() => {
+    fetchDonations(year, page - 1, pageSize, buildingFilter, paymentModeFilter, dateFilter);
+    fetchSummary(year);
+  }, [year, page, pageSize, buildingFilter, paymentModeFilter, dateFilter]);
+
+  const fetchDonations = async (yr, pg, sz, building, paymentMode, date) => {
     try {
-      const res = await api.get('/donations', {
-        params: { year: yr, page: pg, size: sz }
-      });
+      const params = { year: yr, page: pg, size: sz };
+      if (building) params.building = building;
+      if (paymentMode) params.paymentMode = paymentMode;
+      if (date) params.date = date.toISOString().split('T')[0];
+      const res = await api.get('/donations', { params });
       setDonations(res.data.content);
       setTotalPages(res.data.totalPages);
       setEditRow(null);
@@ -44,9 +53,9 @@ const ManageDonations = () => {
 
   const fetchSummary = async (yr) => {
     try {
-      const res = await api.get('/stats/summary', { params: { year: yr }});
+      const res = await api.get('/stats/summary', { params: { year: yr } });
       setSummary(res.data);
-    } catch (err) {
+    } catch {
       console.error('Error fetching summary');
     }
   };
@@ -69,7 +78,7 @@ const ManageDonations = () => {
       setSuccess(true);
       setHighlightedId(editRow.id);
 
-      fetchDonations(year, page - 1, pageSize);
+      fetchDonations(year, page - 1, pageSize, buildingFilter, paymentModeFilter, dateFilter);
       fetchSummary(year);
 
       setTimeout(() => setHighlightedId(null), 3000);
@@ -84,27 +93,63 @@ const ManageDonations = () => {
       <Typography variant="h4" gutterBottom>🛠 Manage Room‑Wise Donations</Typography>
 
       <Paper elevation={2} sx={{ p: 3, mt: 2 }}>
-        <Box display="flex" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={2}>
-          <FormControl sx={{ minWidth: 160 }}>
-            <InputLabel>Select Year</InputLabel>
-            <Select value={year} label="Select Year" onChange={(e) => { setYear(e.target.value); setPage(1); }}>
+        <Box display="flex" flexWrap="wrap" gap={2} alignItems="center">
+          <FormControl size="small" sx={{ minWidth: 140 }}>
+            <InputLabel>Year</InputLabel>
+            <Select value={year} label="Year"
+              onChange={e => { setYear(e.target.value); setPage(1); }}>
               {yearOptions.map(y => <MenuItem key={y} value={y}>{y}</MenuItem>)}
             </Select>
           </FormControl>
 
+          <FormControl size="small" sx={{ minWidth: 140 }}>
+            <InputLabel>Building</InputLabel>
+            <Select value={buildingFilter} label="Building"
+              onChange={e => { setBuildingFilter(e.target.value); setPage(1); }}>
+              <MenuItem value="">All</MenuItem>
+              {donations.map(d => d.building).filter((v,i,a)=>a.indexOf(v)===i).map(b => (
+                <MenuItem key={b} value={b}>{b}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          <FormControl size="small" sx={{ minWidth: 140 }}>
+            <InputLabel>Payment Mode</InputLabel>
+            <Select value={paymentModeFilter} label="Payment Mode"
+              onChange={e => { setPaymentModeFilter(e.target.value); setPage(1); }}>
+              <MenuItem value="">All</MenuItem>
+              {["CASH","CHEQUE","UPI"].map(m => (
+                <MenuItem key={m} value={m}>{m}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          <LocalizationProvider dateAdapter={AdapterDateFns}>
+            <DatePicker
+              label="Date"
+              value={dateFilter}
+              onChange={newVal => { setDateFilter(newVal); setPage(1); }}
+              renderInput={(params) => <TextField size="small" {...params} />}
+            />
+          </LocalizationProvider>
+
+          <Button size="small" onClick={() => {
+            setBuildingFilter('');
+            setPaymentModeFilter('');
+            setDateFilter(null);
+            setPage(1);
+          }}>Reset Filters</Button>
+
           {summary && (
-            <Typography variant="h6" color="green">
+            <Typography variant="h6" color="green" sx={{ ml: 'auto' }}>
               💰 Total Collection: ₹ {summary.totalDonations.toFixed(2)}
             </Typography>
           )}
 
           <FormControl size="small" sx={{ minWidth: 120 }}>
-            <InputLabel>Rows per page</InputLabel>
-            <Select
-              value={pageSize}
-              label="Rows per page"
-              onChange={(e) => { setPageSize(e.target.value); setPage(1); }}
-            >
+            <InputLabel>Rows / page</InputLabel>
+            <Select value={pageSize} label="Rows / page"
+              onChange={e => { setPageSize(e.target.value); setPage(1); }}>
               {pageSizeOptions.map(n => <MenuItem key={n} value={n}>{n}</MenuItem>)}
             </Select>
           </FormControl>
@@ -115,7 +160,15 @@ const ManageDonations = () => {
             sx={{ ml: 2 }}
             onClick={async () => {
               try {
-                const res = await api.get('/export/donations', { responseType: 'blob' });
+                const res = await api.get('/export/donations', {
+                  params: {
+                    year,
+                    building: buildingFilter || undefined,
+                    paymentMode: paymentModeFilter || undefined,
+                    date: dateFilter ? dateFilter.toISOString().split('T')[0] : undefined
+                  },
+                  responseType: 'blob'
+                });
                 saveAs(new Blob([res.data]), 'donations.xlsx');
               } catch {
                 alert("Failed to download donations report.");
@@ -124,6 +177,7 @@ const ManageDonations = () => {
           >
             📤 Export Excel
           </Button>
+
         </Box>
 
         <Table size="small" sx={{ mt: 2 }}>
@@ -139,9 +193,8 @@ const ManageDonations = () => {
               <TableCell align="center">Action</TableCell>
             </TableRow>
           </TableHead>
-
           <TableBody>
-            {donations.map((d) => {
+            {donations.map(d => {
               const isEditing = editRow?.id === d.id;
               const isHighlighted = highlightedId === d.id;
               return (
@@ -152,10 +205,8 @@ const ManageDonations = () => {
                   <TableCell>
                     {isEditing ? (
                       <FormControl size="small" fullWidth>
-                        <Select value={editRow.paymentMode} onChange={(e) => handleEditChange(e, 'paymentMode')}>
-                          <MenuItem value="CASH">CASH</MenuItem>
-                          <MenuItem value="CHEQUE">CHEQUE</MenuItem>
-                          <MenuItem value="UPI">UPI</MenuItem>
+                        <Select value={editRow.paymentMode} onChange={e => handleEditChange(e, 'paymentMode')}>
+                          {["CASH","CHEQUE","UPI"].map(m => <MenuItem key={m} value={m}>{m}</MenuItem>)}
                         </Select>
                       </FormControl>
                     ) : d.paymentMode}
@@ -163,29 +214,19 @@ const ManageDonations = () => {
                   <TableCell>{new Date(d.date).toLocaleDateString('en-IN')}</TableCell>
                   <TableCell>
                     {isEditing ? (
-                      <TextField size="small" value={editRow.remarks || ''} onChange={(e) => handleEditChange(e, 'remarks')} />
+                      <TextField size="small" value={editRow.remarks || ''} onChange={e => handleEditChange(e, 'remarks')} />
                     ) : d.remarks}
                   </TableCell>
                   <TableCell>
                     {isEditing ? (
-                      <TextField
-                        type="number"
-                        size="small"
-                        value={editRow.adjustment || ''}
-                        onChange={(e) => handleEditChange(e, 'adjustment')}
-                        placeholder="+/- ₹"
-                      />
+                      <TextField type="number" size="small" value={editRow.adjustment || ''} onChange={e => handleEditChange(e, 'adjustment')} placeholder="+/- ₹" />
                     ) : "-"}
                   </TableCell>
                   <TableCell align="center">
                     {isEditing ? (
-                      <Button size="small" variant="contained" onClick={handleSave}>
-                        💾 Save
-                      </Button>
+                      <Button size="small" variant="contained" onClick={handleSave}>💾 Save</Button>
                     ) : (
-                      <Button size="small" variant="outlined" onClick={() => setEditRow({ ...d, adjustment: 0 })}>
-                        ✏️ Edit
-                      </Button>
+                      <Button size="small" variant="outlined" onClick={() => setEditRow({ ...d, adjustment: 0 })}>✏️ Edit</Button>
                     )}
                   </TableCell>
                 </TableRow>
@@ -195,19 +236,12 @@ const ManageDonations = () => {
         </Table>
 
         <Stack alignItems="center" mt={2}>
-          <Pagination
-            count={totalPages}
-            page={page}
-            onChange={(e, val) => setPage(val)}
-            color="primary"
-          />
+          <Pagination count={totalPages} page={page} onChange={(e, val) => setPage(val)} color="primary" />
         </Stack>
       </Paper>
 
       <Snackbar open={success} autoHideDuration={3000} onClose={() => setSuccess(false)}>
-        <Alert severity="success" sx={{ width: '100%' }}>
-          ✅ Donation updated successfully!
-        </Alert>
+        <Alert severity="success" sx={{ width: '100%' }}>✅ Donation updated successfully!</Alert>
       </Snackbar>
     </Container>
   );
