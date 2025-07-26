@@ -1,4 +1,3 @@
-// src/pages/ExpenseForm.jsx
 import { useState, useEffect } from 'react';
 import {
   Grid, TextField, Button, Typography, Snackbar, Alert, Paper, Box, MenuItem
@@ -17,7 +16,7 @@ const ExpenseForm = () => {
     date: '',
     description: '',
     addedBy: '',
-    receiptFile: null
+    receiptFiles: []  // array of multiple files
   });
 
   const [success, setSuccess] = useState(false);
@@ -32,43 +31,49 @@ const ExpenseForm = () => {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
+  const handleFileChange = (e) => {
+    setFormData(prev => ({
+      ...prev,
+      receiptFiles: Array.from(e.target.files)
+    }));
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-  
+
     const data = new FormData();
     data.append('category', formData.category);
     data.append('amount', formData.amount);
     data.append('date', formData.date);
     data.append('description', formData.description);
     data.append('addedBy', formData.addedBy);
-    if (formData.receiptFile) {
-      data.append('receipt', formData.receiptFile);
-    }
-  
+    
+    formData.receiptFiles.forEach(file => {
+      data.append('receipts', file); // must match the @RequestParam name in Spring
+    });
+
     try {
       await api.post('/expenses', data, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       setSuccess(true);
-      // reset
       setFormData({
         category: '',
         amount: '',
-        date: '',
+        date: format(new Date(), 'yyyy-MM-dd'),
         description: '',
         addedBy: '',
-        receiptFile: null
+        receiptFiles: []
       });
     } catch (err) {
       alert("Error submitting expense: " + err.message);
     }
   };
-  
 
   return (
     <MainLayout title="Add Expense Entry">
       <Paper elevation={3} sx={{ p: 4, maxWidth: 900, mx: 'auto', mt: 4 }}>
-      <PageHeader />
+        <PageHeader />
         <Typography variant="h5" gutterBottom>💸 Society Festival Expense Entry</Typography>
 
         <Box component="form" onSubmit={handleSubmit} noValidate sx={{ mt: 2 }}>
@@ -113,27 +118,27 @@ const ExpenseForm = () => {
                 name="description" value={formData.description} onChange={handleChange}
               />
             </Grid>
+
             <Grid item xs={12}>
-            <Button
+              <Button
                 variant="outlined"
                 component="label"
                 fullWidth
-            >
-                📎 Upload Receipt (jpg, png, jpeg)
+              >
+                📎 Upload Receipts (jpg, jpeg, png, webp)
                 <input
-                type="file"
-                hidden
-                accept=".jpg,.jpeg,.png,.webp"
-                onChange={(e) =>
-                    setFormData({ ...formData, receiptFile: e.target.files[0] })
-                }
+                  type="file"
+                  hidden
+                  accept=".jpg,.jpeg,.png,.webp"
+                  multiple
+                  onChange={handleFileChange}
                 />
-            </Button>
-            {formData.receiptFile && (
+              </Button>
+              {formData.receiptFiles.length > 0 && (
                 <Typography variant="caption" display="block">
-                Selected: {formData.receiptFile.name}
+                  Selected: {formData.receiptFiles.map(f => f.name).join(', ')}
                 </Typography>
-            )}
+              )}
             </Grid>
 
             <Grid item xs={12} display="flex" justifyContent="flex-end">

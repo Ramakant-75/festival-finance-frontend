@@ -11,13 +11,13 @@ import PageHeader from '../components/PageHeader';
 
 
 const buildings = [
+  { name: "D-1", floors: 2 },
   { name: "D-2", floors: 3 },
+  { name: "D-3", floors: 2 },
   { name: "D-4", floors: 3 },
   { name: "D-5", floors: 3 },
-  { name: "D-7", floors: 3 },
-  { name: "D-1", floors: 2 },
-  { name: "D-3", floors: 2 },
-  { name: "D-6", floors: 2 }
+  { name: "D-6", floors: 2 },
+  { name: "D-7", floors: 3 }
 ];
 
 const floorRoomMap = {
@@ -81,26 +81,32 @@ const DonationForm = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log('Submitting payload:', formData);
-
-    const donationYear = new Date(formData.date).getFullYear();
-    const existsRes = await api.get(`/donations/exists?building=${formData.building}&roomNumber=${formData.room}&year=${donationYear}`);
-    if(existsRes.data === true){
-      alert("Donation already exists for this room. Go to Manage Donations to update.");
-      window.location.href= "/manage-donations";
+  
+    // ✅ VALIDATION CHECK
+    const { building, floor, room, amount, paymentMode, date } = formData;
+  
+    if (!building || floor === '' || !room || !amount || !paymentMode || !date) {
+      alert("Please fill in all required fields.");
       return;
     }
-
-
+  
+    const donationYear = new Date(date).getFullYear();
+    const existsRes = await api.get(`/donations/exists?building=${building}&roomNumber=${room}&year=${donationYear}`);
+    if (existsRes.data === true) {
+      alert("Donation already exists for this room. Go to Manage Donations to update.");
+      window.location.href = "/manage-donations";
+      return;
+    }
+  
     const payload = {
-      building: formData.building,
-      roomNumber: formData.room,
-      amount: parseFloat(formData.amount),
-      paymentMode: formData.paymentMode,
-      date: formData.date,
+      building,
+      roomNumber: room,
+      amount: parseFloat(amount),
+      paymentMode,
+      date,
       remarks: formData.remarks
     };
-
+  
     try {
       await api.post('/donations', payload);
       setSuccess(true);
@@ -117,6 +123,7 @@ const DonationForm = () => {
       alert("Error submitting donation: " + err.message);
     }
   };
+  
 
   const selectedBuilding = buildings.find(b => b.name === formData.building);
   const availableFloors = selectedBuilding
