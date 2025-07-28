@@ -5,9 +5,11 @@ import BarChartIcon from '@mui/icons-material/BarChart';
 import VolunteerActivismIcon from '@mui/icons-material/VolunteerActivism';
 import MoneyOffIcon from '@mui/icons-material/MoneyOff';
 import MainLayout from '../layout/MainLayout';
+import { useAuth } from '../context/AuthContext';
 
 const HomePage = () => {
   const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
 
   return (
     <MainLayout title="Society Festival Portal">

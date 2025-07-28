@@ -9,15 +9,19 @@ import AdapterDateFns from '@mui/lab/AdapterDateFns';
 import PageHeader from '../components/PageHeader';
 import api from '../api/axios';
 import { saveAs } from 'file-saver';
+import { useAuth } from '../context/AuthContext';
 
+const buildings = ["D-1", "D-2", "D-3", "D-4", "D-5", "D-6", "D-7"];
 const currentYear = new Date().getFullYear();
 const yearOptions = Array.from({ length: 10 }, (_, i) => currentYear - i);
 const pageSizeOptions = [10, 20, 50];
 
 const ManageDonations = () => {
+  const { token } = useAuth();
+  const [role, setRole] = useState('');
   const [year, setYear] = useState(currentYear);
   const [donations, setDonations] = useState([]);
-  const [summary, setSummary] = useState(null);
+  const [total, setTotal] = useState(0);
   const [editRow, setEditRow] = useState(null);
   const [success, setSuccess] = useState(false);
   const [highlightedId, setHighlightedId] = useState(null);
@@ -26,14 +30,21 @@ const ManageDonations = () => {
   const [pageSize, setPageSize] = useState(10);
   const [totalPages, setTotalPages] = useState(0);
 
-  // Filter states
   const [buildingFilter, setBuildingFilter] = useState('');
   const [paymentModeFilter, setPaymentModeFilter] = useState('');
   const [dateFilter, setDateFilter] = useState(null);
 
   useEffect(() => {
+    if (token) {
+      api.get('/auth/me', { headers: { Authorization: `Bearer ${token}` } })
+        .then(res => setRole(res.data.role))
+        .catch(() => setRole(''));
+    }
+  }, [token]);
+
+  useEffect(() => {
     fetchDonations(year, page - 1, pageSize, buildingFilter, paymentModeFilter, dateFilter);
-    fetchSummary(year);
+    fetchFilteredTotal(year, buildingFilter, paymentModeFilter, dateFilter);
   }, [year, page, pageSize, buildingFilter, paymentModeFilter, dateFilter]);
 
   const fetchDonations = async (yr, pg, sz, building, paymentMode, date) => {
@@ -46,17 +57,22 @@ const ManageDonations = () => {
       setDonations(res.data.content);
       setTotalPages(res.data.totalPages);
       setEditRow(null);
-    } catch (err) {
+    } catch {
       alert("Error fetching donations.");
     }
   };
 
-  const fetchSummary = async (yr) => {
+  const fetchFilteredTotal = async (yr, building, paymentMode, date) => {
     try {
-      const res = await api.get('/stats/summary', { params: { year: yr } });
-      setSummary(res.data);
+      const params = { year: yr };
+      if (building) params.building = building;
+      if (paymentMode) params.paymentMode = paymentMode;
+      if (date) params.date = date.toISOString().split('T')[0];
+      const res = await api.get('/donations/total', { params });
+      console.log('donations : ' , res.data);
+      setTotal(res.data || 0);
     } catch {
-      console.error('Error fetching summary');
+      setTotal(0);
     }
   };
 
@@ -79,7 +95,7 @@ const ManageDonations = () => {
       setHighlightedId(editRow.id);
 
       fetchDonations(year, page - 1, pageSize, buildingFilter, paymentModeFilter, dateFilter);
-      fetchSummary(year);
+      fetchFilteredTotal(year, buildingFilter, paymentModeFilter, dateFilter);
 
       setTimeout(() => setHighlightedId(null), 3000);
     } catch {
@@ -96,8 +112,7 @@ const ManageDonations = () => {
         <Box display="flex" flexWrap="wrap" gap={2} alignItems="center">
           <FormControl size="small" sx={{ minWidth: 140 }}>
             <InputLabel>Year</InputLabel>
-            <Select value={year} label="Year"
-              onChange={e => { setYear(e.target.value); setPage(1); }}>
+            <Select value={year} label="Year" onChange={e => { setYear(e.target.value); setPage(1); }}>
               {yearOptions.map(y => <MenuItem key={y} value={y}>{y}</MenuItem>)}
             </Select>
           </FormControl>
@@ -107,9 +122,7 @@ const ManageDonations = () => {
             <Select value={buildingFilter} label="Building"
               onChange={e => { setBuildingFilter(e.target.value); setPage(1); }}>
               <MenuItem value="">All</MenuItem>
-              {donations.map(d => d.building).filter((v,i,a)=>a.indexOf(v)===i).map(b => (
-                <MenuItem key={b} value={b}>{b}</MenuItem>
-              ))}
+              {buildings.map(b => <MenuItem key={b} value={b}>{b}</MenuItem>)}
             </Select>
           </FormControl>
 
@@ -118,9 +131,7 @@ const ManageDonations = () => {
             <Select value={paymentModeFilter} label="Payment Mode"
               onChange={e => { setPaymentModeFilter(e.target.value); setPage(1); }}>
               <MenuItem value="">All</MenuItem>
-              {["CASH","CHEQUE","UPI"].map(m => (
-                <MenuItem key={m} value={m}>{m}</MenuItem>
-              ))}
+              {["CASH", "CHEQUE", "UPI"].map(m => <MenuItem key={m} value={m}>{m}</MenuItem>)}
             </Select>
           </FormControl>
 
@@ -140,11 +151,9 @@ const ManageDonations = () => {
             setPage(1);
           }}>Reset Filters</Button>
 
-          {summary && (
-            <Typography variant="h6" color="green" sx={{ ml: 'auto' }}>
-              💰 Total Collection: ₹ {summary.totalDonations.toFixed(2)}
-            </Typography>
-          )}
+          <Typography variant="h6" color="green" sx={{ ml: 'auto' }}>
+            💰 Total Collection: ₹ {total.toFixed(2)}
+          </Typography>
 
           <FormControl size="small" sx={{ minWidth: 120 }}>
             <InputLabel>Rows / page</InputLabel>
@@ -154,51 +163,51 @@ const ManageDonations = () => {
             </Select>
           </FormControl>
 
-          <Button
-            variant="outlined"
-            size="small"
-            sx={{ ml: 2 }}
-            onClick={async () => {
-              try {
-                const res = await api.get('/export/donations', {
-                  params: {
-                    year,
-                    building: buildingFilter || undefined,
-                    paymentMode: paymentModeFilter || undefined,
-                    date: dateFilter ? dateFilter.toISOString().split('T')[0] : undefined
-                  },
-                  responseType: 'blob'
-                });
-                saveAs(new Blob([res.data]), 'donations.xlsx');
-              } catch {
-                alert("Failed to download donations report.");
-              }
-            }}
-          >
-            📤 Export Excel
-          </Button>
-
+          {role === 'ADMIN' && (
+            <Button variant="outlined" size="small" sx={{ ml: 2 }}
+              onClick={async () => {
+                try {
+                  const res = await api.get('/export/donations', {
+                    params: {
+                      year,
+                      building: buildingFilter || undefined,
+                      paymentMode: paymentModeFilter || undefined,
+                      date: dateFilter ? dateFilter.toISOString().split('T')[0] : undefined
+                    },
+                    responseType: 'blob'
+                  });
+                  saveAs(new Blob([res.data]), 'donations.xlsx');
+                } catch {
+                  alert("Failed to download donations report.");
+                }
+              }}
+            >
+              📤 Export Excel
+            </Button>
+          )}
         </Box>
 
         <Table size="small" sx={{ mt: 2 }}>
           <TableHead>
             <TableRow>
+              <TableCell>#</TableCell>
               <TableCell>Building</TableCell>
               <TableCell>Room</TableCell>
               <TableCell>Amount (₹)</TableCell>
               <TableCell>Mode</TableCell>
               <TableCell>Date</TableCell>
               <TableCell>Remarks</TableCell>
-              <TableCell>Adjust (±)</TableCell>
-              <TableCell align="center">Action</TableCell>
+              {role === 'ADMIN' && <TableCell>Adjust (±)</TableCell>}
+              {role === 'ADMIN' && <TableCell align="center">Action</TableCell>}
             </TableRow>
           </TableHead>
           <TableBody>
-            {donations.map(d => {
+            {donations.map((d, idx) => {
               const isEditing = editRow?.id === d.id;
               const isHighlighted = highlightedId === d.id;
               return (
                 <TableRow key={d.id} sx={isHighlighted ? { backgroundColor: '#e6f4ea' } : {}}>
+                  <TableCell>{(page - 1) * pageSize + idx + 1}</TableCell>
                   <TableCell>{d.building}</TableCell>
                   <TableCell>{d.roomNumber}</TableCell>
                   <TableCell>₹ {d.amount}</TableCell>
@@ -206,7 +215,7 @@ const ManageDonations = () => {
                     {isEditing ? (
                       <FormControl size="small" fullWidth>
                         <Select value={editRow.paymentMode} onChange={e => handleEditChange(e, 'paymentMode')}>
-                          {["CASH","CHEQUE","UPI"].map(m => <MenuItem key={m} value={m}>{m}</MenuItem>)}
+                          {["CASH", "CHEQUE", "UPI"].map(m => <MenuItem key={m} value={m}>{m}</MenuItem>)}
                         </Select>
                       </FormControl>
                     ) : d.paymentMode}
@@ -217,18 +226,22 @@ const ManageDonations = () => {
                       <TextField size="small" value={editRow.remarks || ''} onChange={e => handleEditChange(e, 'remarks')} />
                     ) : d.remarks}
                   </TableCell>
-                  <TableCell>
-                    {isEditing ? (
-                      <TextField type="number" size="small" value={editRow.adjustment || ''} onChange={e => handleEditChange(e, 'adjustment')} placeholder="+/- ₹" />
-                    ) : "-"}
-                  </TableCell>
-                  <TableCell align="center">
-                    {isEditing ? (
-                      <Button size="small" variant="contained" onClick={handleSave}>💾 Save</Button>
-                    ) : (
-                      <Button size="small" variant="outlined" onClick={() => setEditRow({ ...d, adjustment: 0 })}>✏️ Edit</Button>
-                    )}
-                  </TableCell>
+                  {role === 'ADMIN' && (
+                    <TableCell>
+                      {isEditing ? (
+                        <TextField type="number" size="small" value={editRow.adjustment || ''} onChange={e => handleEditChange(e, 'adjustment')} placeholder="+/- ₹" />
+                      ) : "-"}
+                    </TableCell>
+                  )}
+                  {role === 'ADMIN' && (
+                    <TableCell align="center">
+                      {isEditing ? (
+                        <Button size="small" variant="contained" onClick={handleSave}>💾 Save</Button>
+                      ) : (
+                        <Button size="small" variant="outlined" onClick={() => setEditRow({ ...d, adjustment: 0 })}>✏️ Edit</Button>
+                      )}
+                    </TableCell>
+                  )}
                 </TableRow>
               );
             })}

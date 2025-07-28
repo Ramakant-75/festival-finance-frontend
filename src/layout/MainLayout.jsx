@@ -1,37 +1,55 @@
 import React, { useContext } from 'react';
-import { AppBar, Toolbar, Typography, IconButton, Box } from '@mui/material';
-import { Brightness4, Brightness7 } from '@mui/icons-material';
-import { ColorModeContext } from '../context/ThemeContext';
+import { AppBar, Toolbar, Typography, Box, Container, IconButton, Tooltip } from '@mui/material';
+import LogoutIcon from '@mui/icons-material/Logout';
+import Brightness4Icon from '@mui/icons-material/Brightness4';
+import Brightness7Icon from '@mui/icons-material/Brightness7';
+import { useAuth } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
+import { ColorModeContext } from '../context/ThemeContext'; // ⬅️ Import this
 
-const MainLayout = ({ title = 'Society Festival Portal', children }) => {
-  const colorMode = useContext(ColorModeContext);
-  const currentMode = localStorage.getItem('themeMode') || 'light';
+const MainLayout = ({ title, children }) => {
+  const { isAuthenticated, logout, username } = useAuth();
+  const navigate = useNavigate();
+  const colorMode = useContext(ColorModeContext); // ⬅️ Access toggle
+  const currentTheme = localStorage.getItem('themeMode') || 'light';
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
 
   return (
     <>
-      <AppBar position="static" color="primary">
-        <Toolbar sx={{ display: 'flex', justifyContent: 'space-between' }}>
-          <Typography variant="h6" fontWeight="bold">{title}</Typography>
+      <AppBar position="static">
+        <Toolbar sx={{ justifyContent: 'space-between' }}>
+          <Typography variant="h6" component="div">
+            🏘️ {title || 'Society Fest'}
+          </Typography>
 
-          <IconButton onClick={colorMode.toggleColorMode} color="inherit">
-            <Box sx={{ position: 'relative', width: 24, height: 24 }}>
-              <Brightness4 sx={{
-                position: 'absolute',
-                opacity: currentMode === 'light' ? 1 : 0,
-                transition: 'opacity 0.3s ease'
-              }} />
-              <Brightness7 sx={{
-                position: 'absolute',
-                opacity: currentMode === 'dark' ? 1 : 0,
-                transition: 'opacity 0.3s ease'
-              }} />
-            </Box>
-          </IconButton>
+          <Box display="flex" alignItems="center" gap={2}>
+            {username && <Typography>{username}</Typography>}
+
+            {/* Theme Toggle Button */}
+            <Tooltip title="Toggle Theme">
+              <IconButton color="inherit" onClick={colorMode.toggleColorMode}>
+                {currentTheme === 'dark' ? <Brightness7Icon /> : <Brightness4Icon />}
+              </IconButton>
+            </Tooltip>
+
+            {/* Logout */}
+            {isAuthenticated && (
+              <Tooltip title="Logout">
+                <IconButton color="inherit" onClick={handleLogout}>
+                  <LogoutIcon />
+                </IconButton>
+              </Tooltip>
+            )}
+          </Box>
         </Toolbar>
       </AppBar>
 
-      <Box component="main" sx={{ py: 4 }}>
-        {children}
+      <Box sx={{ py: 4 }}>
+        <Container>{children}</Container>
       </Box>
     </>
   );

@@ -18,16 +18,27 @@ const pieColors = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#AA66CC', '#33B5
 const Dashboard = () => {
   const [stats, setStats] = useState(null);
   const [year, setYear] = useState(currentYear);
+  const [userRole, setUserRole] = useState(null);
 
   useEffect(() => {
     api.get(`/stats/summary?year=${year}`).then(res => setStats(res.data));
   }, [year]);
 
+  useEffect(() => {
+    api.get('/auth/me')
+      .then(res => setUserRole(res.data.role))
+      .catch(() => setUserRole(null));
+  }, []);
+
   const handleGeneratePdf = async () => {
-    const res = await api.get(`/export/festival-report?year=${year}`, {
-      responseType: 'blob'
-    });
-    saveAs(res.data, `festival-report-${year}.pdf`);
+    try {
+      const res = await api.get(`/export/festival-report?year=${year}`, {
+        responseType: 'blob'
+      });
+      saveAs(res.data, `festival-report-${year}.pdf`);
+    } catch (err) {
+      alert("Failed to generate PDF.");
+    }
   };
 
   if (!stats) return null;
@@ -50,9 +61,11 @@ const Dashboard = () => {
           </Select>
         </FormControl>
 
-        <Button variant="contained" onClick={handleGeneratePdf}>
-          📄 Generate Festival PDF Report
-        </Button>
+        {userRole === 'ADMIN' && (
+          <Button variant="contained" onClick={handleGeneratePdf}>
+            📄 Generate Festival PDF Report
+          </Button>
+        )}
       </Box>
 
       {/* Summary Stats */}
