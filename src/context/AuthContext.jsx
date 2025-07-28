@@ -7,16 +7,15 @@ export const AuthContext = createContext();
 export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(null);
   const [username, setUsername] = useState(null);
+  const [role, setRole] = useState(null);
 
   useEffect(() => {
     const savedToken = localStorage.getItem('token');
     const savedUsername = localStorage.getItem('username');
-    if (savedToken) {
-      setToken(savedToken);
-    }
-    if (savedUsername) {
-      setUsername(savedUsername);
-    }
+    const savedRole = localStorage.getItem('role');
+    if (savedToken) setToken(savedToken);
+    if (savedUsername) setUsername(savedUsername);
+    if (savedRole) setRole(savedRole);
   }, []);
 
   const login = async (usernameInput, password) => {
@@ -24,10 +23,15 @@ export const AuthProvider = ({ children }) => {
       const res = await api.post('/auth/login', { username: usernameInput, password });
       const newToken = res.data.token;
       const returnedUsername = res.data.username || usernameInput;
+      const returnedRole = res.data.role || 'USER';
+
       setToken(newToken);
       setUsername(returnedUsername);
+      setRole(returnedRole);
+
       localStorage.setItem('token', newToken);
       localStorage.setItem('username', returnedUsername);
+      localStorage.setItem('role', returnedRole);
     } catch (error) {
       if (error.response?.status === 403) {
         throw new Error('Unauthorized');
@@ -39,8 +43,10 @@ export const AuthProvider = ({ children }) => {
   const logout = () => {
     setToken(null);
     setUsername(null);
+    setRole(null);
     localStorage.removeItem('token');
     localStorage.removeItem('username');
+    localStorage.removeItem('role');
   };
 
   const signup = async (username, password, role = 'USER') => {
@@ -56,7 +62,7 @@ export const AuthProvider = ({ children }) => {
   const isAuthenticated = !!token;
 
   return (
-    <AuthContext.Provider value={{ token, login, logout, signup, isAuthenticated, username }}>
+    <AuthContext.Provider value={{ token, login, logout, signup, isAuthenticated, username, role }}>
       {children}
     </AuthContext.Provider>
   );

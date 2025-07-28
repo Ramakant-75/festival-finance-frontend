@@ -34,6 +34,7 @@ const ManageExpenses = () => {
 
   useEffect(() => {
     fetchExpenses();
+    console.log('role bc : ' , role);
     fetchTotal();
   }, [year, categoryFilter, addedByFilter, page, pageSize]);
 
@@ -92,13 +93,15 @@ const ManageExpenses = () => {
       ...edited[id],
       amount: parseFloat(original.amount) + parseFloat(adjustments[id] || 0)
     };
-
+  
     try {
       await api.put(`/expenses/${id}`, updated);
       setSuccess(true);
       setUpdatedRowId(id);
       fetchExpenses();
       fetchTotal();
+  
+      // Clear edited and adjustments
       setEdited(prev => {
         const newState = { ...prev };
         delete newState[id];
@@ -109,10 +112,15 @@ const ManageExpenses = () => {
         delete newState[id];
         return newState;
       });
+  
+      // 🔄 Reset row highlight after 3 seconds
+      setTimeout(() => setUpdatedRowId(null), 3000);
+  
     } catch (err) {
       alert("Failed to update expense.");
     }
   };
+  
 
   const handleDownload = async (expenseId, receiptId, filename) => {
     try {
@@ -171,7 +179,7 @@ const ManageExpenses = () => {
             </Select>
           </FormControl>
 
-          {role === 'ADMIN' && (
+          {role === 'ROLE_ADMIN' && (
             <Button
               variant="outlined"
               size="small"
@@ -204,16 +212,16 @@ const ManageExpenses = () => {
                 <TableCell>Description</TableCell>
                 <TableCell>Added By</TableCell>
                 <TableCell>Receipts</TableCell>
-                {role === 'ADMIN' && <TableCell>Actions</TableCell>}
+                {role === 'ROLE_ADMIN' && <TableCell>Actions</TableCell>}
               </TableRow>
             </TableHead>
             <TableBody>
               {expenses.map((e, idx) => (
-                <TableRow key={e.id} sx={{ backgroundColor: updatedRowId === e.id ? '#f1f8e9' : 'inherit' }}>
+                <TableRow key={e.id} sx={{ backgroundColor: updatedRowId === e.id ? '#7d0fd6' : 'inherit' }}>
                   <TableCell>{(page - 1) * pageSize + idx + 1}</TableCell>
 
                   <TableCell>
-                    {role === 'ADMIN' ? (
+                    {role === 'ROLE_ADMIN' ? (
                       <TextField
                         select size="small"
                         value={edited[e.id]?.category || e.category}
@@ -229,7 +237,7 @@ const ManageExpenses = () => {
                   <TableCell>₹ {e.amount.toFixed(2)}</TableCell>
 
                   <TableCell>
-                    {role === 'ADMIN' ? (
+                    {role === 'ROLE_ADMIN' ? (
                       <TextField
                         size="small"
                         type="number"
@@ -241,7 +249,7 @@ const ManageExpenses = () => {
                   </TableCell>
 
                   <TableCell>
-                    {role === 'ADMIN' ? (
+                    {role === 'ROLE_ADMIN' ? (
                       <TextField
                         size="small"
                         type="date"
@@ -253,7 +261,7 @@ const ManageExpenses = () => {
                   </TableCell>
 
                   <TableCell>
-                    {role === 'ADMIN' ? (
+                    {role === 'ROLE_ADMIN' ? (
                       <TextField
                         size="small"
                         value={edited[e.id]?.description || e.description}
@@ -263,7 +271,7 @@ const ManageExpenses = () => {
                   </TableCell>
 
                   <TableCell>
-                    {role === 'ADMIN' ? (
+                    {role === 'ROLE_ADMIN' ? (
                       <TextField
                         size="small"
                         value={edited[e.id]?.addedBy || e.addedBy}
@@ -289,7 +297,7 @@ const ManageExpenses = () => {
                     ) : "No Receipt"}
                   </TableCell>
 
-                  {role === 'ADMIN' && (
+                  {role === 'ROLE_ADMIN' && (
                     <TableCell>
                       <Button variant="contained" size="small" onClick={() => handleSave(e.id)}>💾 Save</Button>
                     </TableCell>

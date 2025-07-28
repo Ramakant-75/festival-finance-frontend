@@ -15,7 +15,7 @@ const Login = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      await login(form.username, form.password);
+      await login(form.username, form.password); // role & username handled internally
       navigate('/');
     } catch (err) {
       if (err.message === 'Unauthorized') {
@@ -65,13 +65,13 @@ const Login = () => {
           Login
         </Button>
       </form>
+
       <Typography variant="body2" align="center" mt={2}>
         Don't have an account?{' '}
         <Button variant="text" onClick={() => navigate('/signup')}>
           Sign up here
         </Button>
       </Typography>
-
     </Box>
   );
 };
