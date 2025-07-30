@@ -10,6 +10,7 @@ import PageHeader from '../components/PageHeader';
 import api from '../api/axios';
 import { saveAs } from 'file-saver';
 import { useAuth } from '../context/AuthContext';
+import MainLayout from '../layout/MainLayout';
 
 const buildings = ["D-1", "D-2", "D-3", "D-4", "D-5", "D-6", "D-7"];
 const currentYear = new Date().getFullYear();
@@ -104,6 +105,7 @@ const ManageDonations = () => {
   };
 
   return (
+    <MainLayout title="Manage Donations">
     <Container maxWidth="lg" sx={{ mt: 6 }}>
       <PageHeader />
       <Typography variant="h4" gutterBottom>🛠 Manage Room‑Wise Donations</Typography>
@@ -206,7 +208,7 @@ const ManageDonations = () => {
               const isEditing = editRow?.id === d.id;
               const isHighlighted = highlightedId === d.id;
               return (
-                <TableRow key={d.id} sx={isHighlighted ? { backgroundColor: '#e6f4ea' } : {}}>
+                <TableRow key={d.id} sx={isHighlighted ? { backgroundColor: '#0fd69a' } : {}}>
                   <TableCell>{(page - 1) * pageSize + idx + 1}</TableCell>
                   <TableCell>{d.building}</TableCell>
                   <TableCell>{d.roomNumber}</TableCell>
@@ -257,6 +259,7 @@ const ManageDonations = () => {
         <Alert severity="success" sx={{ width: '100%' }}>✅ Donation updated successfully!</Alert>
       </Snackbar>
     </Container>
+    </MainLayout>
   );
 };
 

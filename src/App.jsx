@@ -11,6 +11,7 @@ import DonationForm from './pages/DonationForm';
 import ManageDonations from './pages/ManageDonations';
 import ExpenseForm from './pages/ExpenseForm';
 import ManageExpenses from './pages/ManageExpenses';
+import ChatWidget from './components/ChatWidget';
 
 function App() {
   return (
@@ -25,6 +26,7 @@ function App() {
             element={
               <ProtectedRoute>
                 <HomePage />
+                <ChatWidget />
               </ProtectedRoute>
             }
           />
@@ -34,6 +36,7 @@ function App() {
               element={
                 <ProtectedRoute>
                   <Dashboard />
+                  <ChatWidget />
                 </ProtectedRoute>
               }
             />
@@ -43,6 +46,7 @@ function App() {
             element={
               <ProtectedRoute>
                 <DonationForm />
+                <ChatWidget />
               </ProtectedRoute>
             }
           />
@@ -51,6 +55,7 @@ function App() {
             element={
               <ProtectedRoute>
                 <ManageDonations />
+                <ChatWidget />
               </ProtectedRoute>
             }
           />
@@ -59,6 +64,7 @@ function App() {
             element={
               <ProtectedRoute>
                 <ExpenseForm />
+                <ChatWidget />
               </ProtectedRoute>
             }
           />
@@ -67,6 +73,7 @@ function App() {
             element={
               <ProtectedRoute>
                 <ManageExpenses />
+                <ChatWidget />
               </ProtectedRoute>
             }
           />

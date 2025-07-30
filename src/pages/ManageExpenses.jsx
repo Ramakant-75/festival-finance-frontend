@@ -217,7 +217,7 @@ const ManageExpenses = () => {
             </TableHead>
             <TableBody>
               {expenses.map((e, idx) => (
-                <TableRow key={e.id} sx={{ backgroundColor: updatedRowId === e.id ? '#7d0fd6' : 'inherit' }}>
+                <TableRow key={e.id} sx={{ backgroundColor: updatedRowId === e.id ? '#0fd69a' : 'inherit' }}>
                   <TableCell>{(page - 1) * pageSize + idx + 1}</TableCell>
 
                   <TableCell>
