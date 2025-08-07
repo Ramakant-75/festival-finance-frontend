@@ -12,8 +12,13 @@ import ManageDonations from './pages/ManageDonations';
 import ExpenseForm from './pages/ExpenseForm';
 import ManageExpenses from './pages/ManageExpenses';
 import ChatWidget from './components/ChatWidget';
+import AuditLogPage from './pages/AuditLogPage';
+import useUserRole from './hooks/useUserRole'; 
+import { ro } from 'date-fns/locale';
 
 function App() {
+  const role = useUserRole(); 
+  console.log('role 4 : ' , role);
   return (
     <BrowserRouter>
       <AuthProvider>
@@ -77,6 +82,15 @@ function App() {
               </ProtectedRoute>
             }
           />
+            <Route
+              path="/audit-logs"
+              element={
+                <ProtectedRoute adminOnly={true}>
+                  <AuditLogPage />
+                  <ChatWidget />
+                </ProtectedRoute>
+              }
+            />
         </Routes>
       </AuthProvider>
     </BrowserRouter>

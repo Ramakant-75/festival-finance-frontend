@@ -6,11 +6,13 @@ import VolunteerActivismIcon from '@mui/icons-material/VolunteerActivism';
 import MoneyOffIcon from '@mui/icons-material/MoneyOff';
 import MainLayout from '../layout/MainLayout';
 import { useAuth } from '../context/AuthContext';
+import { IcecreamOutlined, LocalGasStationSharp, ScaleOutlined, ScaleRounded, ScaleTwoTone, ScannerOutlined } from '@mui/icons-material';
 
 const HomePage = () => {
   const navigate = useNavigate();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user, role } = useAuth();
 
+  console.log('user 5 = ' , user?.role);
   return (
     <MainLayout title="Society Festival Portal">
       <Container maxWidth="md" sx={{ textAlign: 'center', mt: 6 }}>
@@ -67,6 +69,17 @@ const HomePage = () => {
           >
             Manage Expenses
           </Button>
+          {role === 'ROLE_ADMIN' && (
+            <Button
+              variant="outlined"
+              size="large"
+              fullWidth
+              startIcon={<LocalGasStationSharp />}
+              onClick={() => navigate('/audit-logs')}
+            >
+              AUDIT LOGS
+            </Button>
+          )}
         </Stack>
       </Container>
     </MainLayout>

@@ -36,7 +36,7 @@ const ChatWidget = () => {
       const aiMsg = { sender: 'ai', text: response.data.response };
       setMessages(prev => [...prev, aiMsg]);
     } catch (err) {
-      setMessages(prev => [...prev, { sender: 'ai', text: '❌ Failed to get AI response' }]);
+      setMessages(prev => [...prev, { sender: 'ai', text: 'The assistant is offline 😴' }]);
     } finally {
       setLoading(false);
     }

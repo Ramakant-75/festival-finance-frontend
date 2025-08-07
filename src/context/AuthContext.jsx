@@ -24,6 +24,7 @@ export const AuthProvider = ({ children }) => {
       const newToken = res.data.token;
       const returnedUsername = res.data.username || usernameInput;
       const returnedRole = res.data.role || 'USER';
+      console.log('returned role : ' , returnedRole);
 
       setToken(newToken);
       setUsername(returnedUsername);
