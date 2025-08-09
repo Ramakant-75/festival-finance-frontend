@@ -2,13 +2,12 @@ import React, { useEffect, useState } from 'react';
 import {
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   Paper, TextField, MenuItem, Button, Snackbar, Alert, Typography, Box,
-  FormControl, InputLabel, Select, Pagination, Stack
+  FormControl, InputLabel, Select, Pagination, Stack, CircularProgress
 } from '@mui/material';
 import { saveAs } from 'file-saver';
 import api from '../api/axios';
 import MainLayout from '../layout/MainLayout';
 import PageHeader from '../components/PageHeader';
-import { useAuth } from '../context/AuthContext';
 
 const currentYear = new Date().getFullYear();
 const yearOptions = Array.from({ length: 10 }, (_, i) => currentYear - i);
@@ -16,11 +15,11 @@ const categories = ["Murti", "Banjo", "Mandap", "Pooja Samagri", "Decoration", "
 const pageSizeOptions = [10, 20, 50];
 
 const ManageExpenses = () => {
-  const { role } = useAuth();
   const [expenses, setExpenses] = useState([]);
   const [edited, setEdited] = useState({});
   const [adjustments, setAdjustments] = useState({});
   const [success, setSuccess] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
   const [updatedRowId, setUpdatedRowId] = useState(null);
   const [expandedRow, setExpandedRow] = useState(null);
   const [newPayments, setNewPayments] = useState({});
@@ -32,6 +31,9 @@ const ManageExpenses = () => {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [totalPages, setTotalPages] = useState(0);
+
+  const [exportingBasic, setExportingBasic] = useState(false);
+  const [exportingDetailed, setExportingDetailed] = useState(false);
 
   useEffect(() => {
     fetchExpenses();
@@ -107,6 +109,7 @@ const ManageExpenses = () => {
     try {
       await api.post(`/expenses/${expenseId}/payments`, payment);
       setSuccess(true);
+      setSuccessMessage("Payment added successfully.");
       fetchExpenses();
       fetchTotalPaid();
       setNewPayments(prev => ({ ...prev, [expenseId]: {} }));
@@ -125,6 +128,7 @@ const ManageExpenses = () => {
     try {
       await api.put(`/expenses/${id}`, updated);
       setSuccess(true);
+      setSuccessMessage("Expense updated successfully.");
       setUpdatedRowId(id);
       fetchExpenses();
       fetchTotal();
@@ -144,6 +148,25 @@ const ManageExpenses = () => {
       saveAs(blob, filename || `receipt-${receiptId}.jpg`);
     } catch (err) {
       alert("Failed to download receipt.");
+    }
+  };
+
+  const handleExport = async (type = 'basic') => {
+    const isBasic = type === 'basic';
+    const setLoading = isBasic ? setExportingBasic : setExportingDetailed;
+    const endpoint = isBasic ? '/export/expenses' : '/export/export-detailed-expenses';
+    const filename = isBasic ? 'expenses.xlsx' : 'detailed_expenses.xlsx';
+
+    try {
+      setLoading(true);
+      const res = await api.get(endpoint, { responseType: 'blob' });
+      saveAs(new Blob([res.data]), filename);
+      setSuccess(true);
+      setSuccessMessage(`${isBasic ? 'Simple' : 'Detailed'} report downloaded successfully`);
+    } catch {
+      alert(`Failed to download ${isBasic ? 'simple' : 'detailed'} report.`);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -193,90 +216,93 @@ const ManageExpenses = () => {
             </Select>
           </FormControl>
 
-          {role === 'ROLE_ADMIN' && (
-            <Button variant="outlined" size="small" onClick={async () => {
-              try {
-                const res = await api.get('/export/expenses', { responseType: 'blob' });
-                saveAs(new Blob([res.data]), 'expenses.xlsx');
-              } catch {
-                alert("Failed to download expenses report.");
-              }
-            }}>
-              📤 Export Excel
-            </Button>
-          )}
+          <Button
+            variant="outlined"
+            size="small"
+            onClick={() => handleExport('basic')}
+            disabled={exportingBasic || exportingDetailed}
+            startIcon={exportingBasic ? <CircularProgress size={18} /> : null}
+          >
+            📤 Export Excel
+          </Button>
+
+          <Button
+            variant="outlined"
+            size="small"
+            color="success"
+            onClick={() => handleExport('detailed')}
+            disabled={exportingBasic || exportingDetailed}
+            startIcon={exportingDetailed ? <CircularProgress size={18} /> : null}
+          >
+            📥 Export Detailed Report
+          </Button>
         </Box>
 
         <TableContainer component={Paper}>
           <Table>
-          <TableHead>
+            <TableHead>
               <TableRow>
                 <TableCell>#</TableCell>
                 <TableCell>Category</TableCell>
-                <TableCell>Paid / Balance</TableCell>  {/* Moved here */}
-                <TableCell>Total Amount (₹)</TableCell>            {/* Moved below */}
+                <TableCell>Paid / Balance</TableCell>
+                <TableCell>Total Amount (₹)</TableCell>
                 <TableCell>Adjustment (±)</TableCell>
                 <TableCell>Date</TableCell>
                 <TableCell>Description</TableCell>
                 <TableCell>Added By</TableCell>
                 <TableCell>Receipts</TableCell>
-                {role === 'ROLE_ADMIN' && <TableCell>Actions</TableCell>}
+                <TableCell>Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
-                {expenses.map((e, idx) => (
-                  <React.Fragment key={e.id}>
-                    <TableRow sx={{ backgroundColor: updatedRowId === e.id ? '#0fd69a' : 'inherit' }}>
-                      <TableCell>{(page - 1) * pageSize + idx + 1}</TableCell>
-                      <TableCell>{e.category}</TableCell>
-                      <TableCell>₹ {e.totalPaid?.toFixed(2) || 0} / ₹ {e.balanceAmount?.toFixed(2) || 0}</TableCell> {/* moved up */}
-                      <TableCell>₹ {e.amount.toFixed(2)}</TableCell> {/* moved below */}
-                      <TableCell>
-                        {role === 'ROLE_ADMIN' ? (
-                          <TextField
-                            size="small"
-                            type="number"
-                            placeholder="± Amount"
-                            value={adjustments[e.id] || ''}
-                            onChange={(evt) => handleAdjustmentChange(e.id, evt.target.value)}
-                          />
-                        ) : "-"}
-                      </TableCell>
-                      <TableCell>{new Date(e.date).toLocaleDateString('en-IN')}</TableCell>
-                      <TableCell>{e.description}</TableCell>
-                      <TableCell>{e.addedBy}</TableCell>
-                      <TableCell>
-                        {e.hasReceipt && e.receipts?.length > 0 ? (
-                          <Box display="flex" flexDirection="column" gap={1}>
-                            {e.receipts.map((r, idx) => (
-                              <Button
-                                key={r.id}
-                                size="small"
-                                variant="outlined"
-                                onClick={() => handleDownload(e.id, r.id, r.fileName)}
-                              >
-                                📎 {r.fileName || `Receipt ${idx + 1}`}
-                              </Button>
-                            ))}
-                          </Box>
-                        ) : "No Receipt"}
-                      </TableCell>
-                      {role === 'ROLE_ADMIN' && (
-                        <TableCell>
-                          <Box display="flex" gap={1}>
-                            <Button variant="contained" size="small" onClick={() => handleSave(e.id)}>💾 Save</Button>
+              {expenses.map((e, idx) => (
+                <React.Fragment key={e.id}>
+                  <TableRow sx={{ backgroundColor: updatedRowId === e.id ? '#0fd69a' : 'inherit' }}>
+                    <TableCell>{(page - 1) * pageSize + idx + 1}</TableCell>
+                    <TableCell>{e.category}</TableCell>
+                    <TableCell>₹ {e.totalPaid?.toFixed(2) || 0} / ₹ {e.balanceAmount?.toFixed(2) || 0}</TableCell>
+                    <TableCell>₹ {e.amount.toFixed(2)}</TableCell>
+                    <TableCell>
+                      <TextField
+                        size="small"
+                        type="number"
+                        placeholder="± Amount"
+                        value={adjustments[e.id] || ''}
+                        onChange={(evt) => handleAdjustmentChange(e.id, evt.target.value)}
+                      />
+                    </TableCell>
+                    <TableCell>{new Date(e.date).toLocaleDateString('en-IN')}</TableCell>
+                    <TableCell>{e.description}</TableCell>
+                    <TableCell>{e.addedBy}</TableCell>
+                    <TableCell>
+                      {e.hasReceipt && e.receipts?.length > 0 ? (
+                        <Box display="flex" flexDirection="column" gap={1}>
+                          {e.receipts.map((r, idx) => (
                             <Button
-                              variant="outlined"
+                              key={r.id}
                               size="small"
-                              onClick={() => setExpandedRow(prev => prev === e.id ? null : e.id)}
+                              variant="outlined"
+                              onClick={() => handleDownload(e.id, r.id, r.fileName)}
                             >
-                              {expandedRow === e.id ? 'Hide Payments' : 'Payments 💳'}
+                              📎 {r.fileName || `Receipt ${idx + 1}`}
                             </Button>
-                          </Box>
-                        </TableCell>
-                      )}
-                    </TableRow>
-
+                          ))}
+                        </Box>
+                      ) : "No Receipt"}
+                    </TableCell>
+                    <TableCell>
+                      <Box display="flex" gap={1}>
+                        <Button variant="contained" size="small" onClick={() => handleSave(e.id)}>💾 Save</Button>
+                        <Button
+                          variant="outlined"
+                          size="small"
+                          onClick={() => setExpandedRow(prev => prev === e.id ? null : e.id)}
+                        >
+                          {expandedRow === e.id ? 'Hide Payments' : 'Payments 💳'}
+                        </Button>
+                      </Box>
+                    </TableCell>
+                  </TableRow>
 
                   {expandedRow === e.id && (
                     <TableRow>
@@ -323,7 +349,7 @@ const ManageExpenses = () => {
       </Box>
 
       <Snackbar open={success} autoHideDuration={3000} onClose={() => setSuccess(false)}>
-        <Alert severity="success" sx={{ width: '100%' }}>✅ Operation completed successfully!</Alert>
+        <Alert severity="success" sx={{ width: '100%' }}>{successMessage || '✅ Operation completed successfully!'}</Alert>
       </Snackbar>
     </MainLayout>
   );

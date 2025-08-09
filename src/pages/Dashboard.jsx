@@ -61,11 +61,10 @@ const Dashboard = () => {
           </Select>
         </FormControl>
 
-        {userRole === 'ADMIN' && (
-          <Button variant="contained" onClick={handleGeneratePdf}>
-            📄 Generate Festival PDF Report
-          </Button>
-        )}
+        {/* PDF Export button is now visible to all users */}
+        <Button variant="contained" onClick={handleGeneratePdf}>
+          📄 Generate Festival PDF Report
+        </Button>
       </Box>
 
       {/* Summary Stats */}
