@@ -2,7 +2,8 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: 'http://localhost:8090/api',
+  // baseURL: 'http://localhost:8090/api',
+  baseURL: 'https://festival-finance-backend.onrender.com/api',
 });
 
 api.interceptors.request.use((config) => {
