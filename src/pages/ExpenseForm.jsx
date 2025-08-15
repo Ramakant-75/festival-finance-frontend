@@ -1,10 +1,9 @@
-// MODERNIZED ExpenseForm.jsx with professional UI polish
-
 import { useState } from 'react';
 import {
   Grid, TextField, Button, Typography, Snackbar, Alert,
-  Paper, Box, MenuItem, Divider, Stack
+  Paper, Box, MenuItem, Divider, Stack, IconButton, List, ListItem, ListItemText
 } from '@mui/material';
+import { Delete } from '@mui/icons-material';
 import api from '../api/axios';
 import MainLayout from '../layout/MainLayout';
 import { format } from 'date-fns';
@@ -31,26 +30,57 @@ const ExpenseForm = () => {
   });
 
   const [success, setSuccess] = useState(false);
+  const [paymentError, setPaymentError] = useState('');
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+
+    // Re-check payment validation if total amount changes
+    if (name === 'amount') {
+      validatePayment(paymentData.amount, value);
+    }
   };
 
   const handlePaymentChange = (e) => {
     const { name, value } = e.target;
     setPaymentData(prev => ({ ...prev, [name]: value }));
+
+    if (name === 'amount') {
+      validatePayment(value, formData.amount);
+    }
+  };
+
+  const validatePayment = (paymentAmt, totalAmt) => {
+    if (Number(paymentAmt) > Number(totalAmt)) {
+      setPaymentError('❌ Payment amount cannot be greater than total expense amount');
+    } else {
+      setPaymentError('');
+    }
   };
 
   const handleFileChange = (e) => {
+    const files = Array.from(e.target.files);
+    const validFiles = files.filter(file =>
+      ['image/jpeg', 'image/png', 'image/webp'].includes(file.type)
+    );
+
     setFormData(prev => ({
       ...prev,
-      receiptFiles: Array.from(e.target.files)
+      receiptFiles: [...prev.receiptFiles, ...validFiles]
+    }));
+  };
+
+  const handleRemoveFile = (index) => {
+    setFormData(prev => ({
+      ...prev,
+      receiptFiles: prev.receiptFiles.filter((_, i) => i !== index)
     }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (paymentError) return;
 
     const data = new FormData();
     data.append('category', formData.category);
@@ -127,10 +157,22 @@ const ExpenseForm = () => {
                 📎 Upload Receipts (JPG, JPEG, PNG, WEBP)
                 <input type="file" hidden accept=".jpg,.jpeg,.png,.webp" multiple onChange={handleFileChange} />
               </Button>
+
               {formData.receiptFiles.length > 0 && (
-                <Typography variant="caption" display="block" mt={1}>
-                  Selected: {formData.receiptFiles.map(f => f.name).join(', ')}
-                </Typography>
+                <List dense>
+                  {formData.receiptFiles.map((file, idx) => (
+                    <ListItem
+                      key={idx}
+                      secondaryAction={
+                        <IconButton edge="end" color="error" onClick={() => handleRemoveFile(idx)}>
+                          <Delete />
+                        </IconButton>
+                      }
+                    >
+                      <ListItemText primary={file.name} />
+                    </ListItem>
+                  ))}
+                </List>
               )}
             </Grid>
           </Grid>
@@ -141,7 +183,17 @@ const ExpenseForm = () => {
           <Typography variant="subtitle1" fontWeight={600} mb={1}>💳 Initial Payment Details</Typography>
           <Grid container spacing={2}>
             <Grid item xs={12} sm={6} md={4}>
-              <TextField required fullWidth label="Payment Amount (₹)" type="number" name="amount" value={paymentData.amount} onChange={handlePaymentChange} />
+              <TextField
+                required
+                fullWidth
+                label="Payment Amount (₹)"
+                type="number"
+                name="amount"
+                value={paymentData.amount}
+                onChange={handlePaymentChange}
+                error={!!paymentError}
+                helperText={paymentError}
+              />
             </Grid>
             <Grid item xs={12} sm={6} md={4}>
               <TextField required fullWidth label="Paid By" name="paidBy" value={paymentData.paidBy} onChange={handlePaymentChange} />
@@ -158,7 +210,12 @@ const ExpenseForm = () => {
           </Grid>
 
           <Stack direction="row" justifyContent="flex-end" mt={4}>
-            <Button type="submit" variant="contained" size="large">
+            <Button
+              type="submit"
+              variant="contained"
+              size="large"
+              disabled={!!paymentError}
+            >
               💾 Submit Expense
             </Button>
           </Stack>

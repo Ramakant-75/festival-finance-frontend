@@ -2,8 +2,10 @@ import React, { useEffect, useState } from 'react';
 import {
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   Paper, TextField, MenuItem, Button, Snackbar, Alert, Typography, Box,
-  FormControl, InputLabel, Select, Pagination, Stack, CircularProgress
+  FormControl, InputLabel, Select, Pagination, Stack, CircularProgress, Chip, Tooltip
 } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
+import { Download as DownloadIcon } from '@mui/icons-material';
 import { saveAs } from 'file-saver';
 import api from '../api/axios';
 import MainLayout from '../layout/MainLayout';
@@ -15,6 +17,7 @@ const categories = ["Murti", "Banjo", "Mandap", "Pooja Samagri", "Decoration", "
 const pageSizeOptions = [10, 20, 50];
 
 const ManageExpenses = () => {
+  const theme = useTheme();
   const [expenses, setExpenses] = useState([]);
   const [edited, setEdited] = useState({});
   const [adjustments, setAdjustments] = useState({});
@@ -23,6 +26,7 @@ const ManageExpenses = () => {
   const [updatedRowId, setUpdatedRowId] = useState(null);
   const [expandedRow, setExpandedRow] = useState(null);
   const [newPayments, setNewPayments] = useState({});
+  const [paymentErrors, setPaymentErrors] = useState({});
   const [year, setYear] = useState(currentYear);
   const [categoryFilter, setCategoryFilter] = useState('');
   const [addedByFilter, setAddedByFilter] = useState('');
@@ -31,6 +35,7 @@ const ManageExpenses = () => {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [totalPages, setTotalPages] = useState(0);
+  
 
   const [exportingBasic, setExportingBasic] = useState(false);
   const [exportingDetailed, setExportingDetailed] = useState(false);
@@ -43,47 +48,29 @@ const ManageExpenses = () => {
 
   const fetchExpenses = async () => {
     try {
-      const params = {
-        year,
-        category: categoryFilter || undefined,
-        addedBy: addedByFilter || undefined,
-        page: page - 1,
-        size: pageSize,
-      };
+      const params = { year, category: categoryFilter || undefined, addedBy: addedByFilter || undefined, page: page - 1, size: pageSize };
       const res = await api.get('/expenses', { params });
       setExpenses(res.data.content);
       setTotalPages(res.data.totalPages);
-    } catch (err) {
+    } catch {
       alert("Error fetching expenses.");
     }
   };
 
   const fetchTotal = async () => {
     try {
-      const params = {
-        year,
-        category: categoryFilter || undefined,
-        addedBy: addedByFilter || undefined,
-      };
+      const params = { year, category: categoryFilter || undefined, addedBy: addedByFilter || undefined };
       const res = await api.get('/expenses/total', { params });
       setTotal(res.data);
-    } catch (err) {
-      console.error("Error fetching total expenses.");
-    }
+    } catch { }
   };
 
   const fetchTotalPaid = async () => {
     try {
-      const params = {
-        year,
-        category: categoryFilter || undefined,
-        addedBy: addedByFilter || undefined,
-      };
+      const params = { year, category: categoryFilter || undefined, addedBy: addedByFilter || undefined };
       const res = await api.get('/expenses/total-paid', { params });
       setTotalPaidSum(res.data);
-    } catch (err) {
-      console.error("Error fetching total paid.");
-    }
+    } catch { }
   };
 
   const handleAdjustmentChange = (id, value) => {
@@ -98,12 +85,33 @@ const ManageExpenses = () => {
         [field]: value
       }
     }));
+  
+    if (field === 'amount') {
+      const expense = expenses.find(e => e.id === id);
+      if (Number(value) > Number(expense?.balanceAmount)) {
+        setPaymentErrors(prev => ({
+          ...prev,
+          [id]: '❌ Payment cannot exceed balance amount'
+        }));
+      } else {
+        setPaymentErrors(prev => {
+          const newErrors = { ...prev };
+          delete newErrors[id];
+          return newErrors;
+        });
+      }
+    }
   };
+  
 
-  const handleAddPayment = async (expenseId) => {
+  const handleAddPayment = async (expenseId, totalAmount, totalPaid) => {
     const payment = newPayments[expenseId];
     if (!payment || !payment.amount || !payment.paymentDate) {
       alert("Please fill amount and date.");
+      return;
+    }
+    if (parseFloat(payment.amount) > (totalAmount - totalPaid)) {
+      alert("Payment exceeds remaining balance.");
       return;
     }
     try {
@@ -113,7 +121,8 @@ const ManageExpenses = () => {
       fetchExpenses();
       fetchTotalPaid();
       setNewPayments(prev => ({ ...prev, [expenseId]: {} }));
-    } catch (err) {
+      setPaymentErrors(prev => ({ ...prev, [expenseId]: '' }));
+    } catch {
       alert("Failed to add payment.");
     }
   };
@@ -133,10 +142,10 @@ const ManageExpenses = () => {
       fetchExpenses();
       fetchTotal();
       fetchTotalPaid();
-      setEdited(prev => { const newState = { ...prev }; delete newState[id]; return newState; });
-      setAdjustments(prev => { const newState = { ...prev }; delete newState[id]; return newState; });
+      setEdited(prev => { const ns = { ...prev }; delete ns[id]; return ns; });
+      setAdjustments(prev => { const ns = { ...prev }; delete ns[id]; return ns; });
       setTimeout(() => setUpdatedRowId(null), 3000);
-    } catch (err) {
+    } catch {
       alert("Failed to update expense.");
     }
   };
@@ -144,9 +153,8 @@ const ManageExpenses = () => {
   const handleDownload = async (expenseId, receiptId, filename) => {
     try {
       const response = await api.get(`/expenses/${expenseId}/receipts/${receiptId}`, { responseType: 'blob' });
-      const blob = new Blob([response.data]);
-      saveAs(blob, filename || `receipt-${receiptId}.jpg`);
-    } catch (err) {
+      saveAs(new Blob([response.data]), filename || `receipt-${receiptId}.jpg`);
+    } catch {
       alert("Failed to download receipt.");
     }
   };
@@ -173,49 +181,7 @@ const ManageExpenses = () => {
   return (
     <MainLayout title="Manage Expenses">
       <PageHeader />
-      <Box sx={{ px: 4, py: 3 }}>
-        <Box display="flex" flexWrap="wrap" alignItems="center" gap={2} mb={3}>
-          <FormControl size="small" sx={{ minWidth: 120 }}>
-            <InputLabel>Year</InputLabel>
-            <Select value={year} label="Year" onChange={e => { setYear(e.target.value); setPage(1); }}>
-              {yearOptions.map(y => <MenuItem key={y} value={y}>{y}</MenuItem>)}
-            </Select>
-          </FormControl>
-
-          <FormControl size="small" sx={{ minWidth: 140 }}>
-            <InputLabel>Category</InputLabel>
-            <Select value={categoryFilter} label="Category" onChange={e => { setCategoryFilter(e.target.value); setPage(1); }}>
-              <MenuItem value="">All</MenuItem>
-              {categories.map(cat => <MenuItem key={cat} value={cat}>{cat}</MenuItem>)}
-            </Select>
-          </FormControl>
-
-          <TextField
-            size="small"
-            label="Added By"
-            value={addedByFilter}
-            onChange={e => { setAddedByFilter(e.target.value); setPage(1); }}
-          />
-
-          <Button size="small" onClick={() => { setCategoryFilter(''); setAddedByFilter(''); setPage(1); }}>
-            Reset Filters
-          </Button>
-
-          <Typography variant="h6" color="green" sx={{ ml: 'auto' }}>
-            🧾 Total Expenses: ₹ {total.toFixed(2)}
-          </Typography>
-
-          <Typography variant="h6" color="blue">
-            💸 Paid: ₹ {totalPaidSum.toFixed(2)}
-          </Typography>
-
-          <FormControl size="small" sx={{ minWidth: 120 }}>
-            <InputLabel>Rows / page</InputLabel>
-            <Select value={pageSize} label="Rows / page" onChange={e => { setPageSize(e.target.value); setPage(1); }}>
-              {pageSizeOptions.map(n => <MenuItem key={n} value={n}>{n}</MenuItem>)}
-            </Select>
-          </FormControl>
-
+              <Box display="flex" justifyContent="flex-end" mb={2} gap={1}>
           <Button
             variant="outlined"
             size="small"
@@ -237,7 +203,40 @@ const ManageExpenses = () => {
             📥 Export Detailed Report
           </Button>
         </Box>
+      <Box sx={{ px: 4, py: 3 }}>
+        {/* Filters */}
+        <Box display="flex" flexWrap="wrap" alignItems="center" gap={2} mb={3}>
+          <FormControl size="small" sx={{ minWidth: 120 }}>
+            <InputLabel>Year</InputLabel>
+            <Select value={year} label="Year" onChange={e => { setYear(e.target.value); setPage(1); }}>
+              {yearOptions.map(y => <MenuItem key={y} value={y}>{y}</MenuItem>)}
+            </Select>
+          </FormControl>
 
+          <FormControl size="small" sx={{ minWidth: 140 }}>
+            <InputLabel>Category</InputLabel>
+            <Select value={categoryFilter} label="Category" onChange={e => { setCategoryFilter(e.target.value); setPage(1); }}>
+              <MenuItem value="">All</MenuItem>
+              {categories.map(cat => <MenuItem key={cat} value={cat}>{cat}</MenuItem>)}
+            </Select>
+          </FormControl>
+
+          <TextField size="small" label="Added By" value={addedByFilter} onChange={e => { setAddedByFilter(e.target.value); setPage(1); }} />
+
+          <Button size="small" onClick={() => { setCategoryFilter(''); setAddedByFilter(''); setPage(1); }}>Reset Filters</Button>
+
+          <Typography variant="h6" color="green" sx={{ ml: 'auto' }}>🧾 Total Expense: ₹ {total.toFixed(2)}</Typography>
+          <Typography variant="h6" color="blue">💸 Paid: ₹ {totalPaidSum.toFixed(2)}</Typography>
+
+          <FormControl size="small" sx={{ minWidth: 120 }}>
+            <InputLabel>Rows / page</InputLabel>
+            <Select value={pageSize} label="Rows / page" onChange={e => { setPageSize(e.target.value); setPage(1); }}>
+              {pageSizeOptions.map(n => <MenuItem key={n} value={n}>{n}</MenuItem>)}
+            </Select>
+          </FormControl>
+        </Box>
+
+        {/* Table */}
         <TableContainer component={Paper}>
           <Table>
             <TableHead>
@@ -245,7 +244,7 @@ const ManageExpenses = () => {
                 <TableCell>#</TableCell>
                 <TableCell>Category</TableCell>
                 <TableCell>Paid / Balance</TableCell>
-                <TableCell>Total Amount (₹)</TableCell>
+                <TableCell>Total (₹)</TableCell>
                 <TableCell>Adjustment (±)</TableCell>
                 <TableCell>Date</TableCell>
                 <TableCell>Description</TableCell>
@@ -263,29 +262,25 @@ const ManageExpenses = () => {
                     <TableCell>₹ {e.totalPaid?.toFixed(2) || 0} / ₹ {e.balanceAmount?.toFixed(2) || 0}</TableCell>
                     <TableCell>₹ {e.amount.toFixed(2)}</TableCell>
                     <TableCell>
-                      <TextField
-                        size="small"
-                        type="number"
-                        placeholder="± Amount"
-                        value={adjustments[e.id] || ''}
-                        onChange={(evt) => handleAdjustmentChange(e.id, evt.target.value)}
-                      />
+                      <TextField size="small" type="number" placeholder="± Amount" value={adjustments[e.id] || ''} onChange={(evt) => handleAdjustmentChange(e.id, evt.target.value)} />
                     </TableCell>
                     <TableCell>{new Date(e.date).toLocaleDateString('en-IN')}</TableCell>
                     <TableCell>{e.description}</TableCell>
                     <TableCell>{e.addedBy}</TableCell>
                     <TableCell>
                       {e.hasReceipt && e.receipts?.length > 0 ? (
-                        <Box display="flex" flexDirection="column" gap={1}>
+                        <Box display="flex" flexWrap="wrap" gap={1}>
                           {e.receipts.map((r, idx) => (
-                            <Button
-                              key={r.id}
-                              size="small"
-                              variant="outlined"
-                              onClick={() => handleDownload(e.id, r.id, r.fileName)}
-                            >
-                              📎 {r.fileName || `Receipt ${idx + 1}`}
-                            </Button>
+                            <Tooltip title={r.fileName || `Receipt ${idx + 1}`} key={r.id}>
+                              <Chip
+                                icon={<DownloadIcon />}
+                                label={r.fileName.length > 12 ? r.fileName.slice(0, 12) + '…' : r.fileName}
+                                onClick={() => handleDownload(e.id, r.id, r.fileName)}
+                                variant="outlined"
+                                size="small"
+                                sx={{ cursor: 'pointer' }}
+                              />
+                            </Tooltip>
                           ))}
                         </Box>
                       ) : "No Receipt"}
@@ -293,11 +288,7 @@ const ManageExpenses = () => {
                     <TableCell>
                       <Box display="flex" gap={1}>
                         <Button variant="contained" size="small" onClick={() => handleSave(e.id)}>💾 Save</Button>
-                        <Button
-                          variant="outlined"
-                          size="small"
-                          onClick={() => setExpandedRow(prev => prev === e.id ? null : e.id)}
-                        >
+                        <Button variant="outlined" size="small" onClick={() => setExpandedRow(prev => prev === e.id ? null : e.id)}>
                           {expandedRow === e.id ? 'Hide Payments' : 'Payments 💳'}
                         </Button>
                       </Box>
@@ -307,12 +298,19 @@ const ManageExpenses = () => {
                   {expandedRow === e.id && (
                     <TableRow>
                       <TableCell colSpan={10}>
-                        <Box sx={{ mt: 1, p: 2, border: '1px solid #ddd', borderRadius: 1, bgcolor: '#f9f9f9' }}>
+                        <Box sx={{
+                          mt: 1,
+                          p: 2,
+                          border: '1px solid',
+                          borderColor: theme.palette.divider,
+                          borderRadius: 1,
+                          bgcolor: theme.palette.mode === 'dark' ? 'grey.900' : 'grey.100'
+                        }}>
                           <Typography variant="subtitle1" gutterBottom>💳 Payments</Typography>
                           {e.payments?.length > 0 ? (
                             <Box mb={2}>
                               {e.payments.map((p, i) => (
-                                <Typography key={p.id} variant="body2">
+                                <Typography key={p.id} variant="body2" color="text.primary">
                                   #{i + 1}: ₹{p.amount} paid on {new Date(p.paymentDate).toLocaleDateString('en-IN')} by {p.paidBy || 'Unknown'} {p.paymentMethod && `via ${p.paymentMethod}`} {p.note && `– ${p.note}`}
                                 </Typography>
                               ))}
@@ -321,12 +319,20 @@ const ManageExpenses = () => {
                             <Typography variant="body2" color="text.secondary" mb={2}>No payments recorded yet.</Typography>
                           )}
                           <Box display="flex" gap={2} flexWrap="wrap">
-                            <TextField label="Amount" type="number" size="small" value={newPayments[e.id]?.amount ?? ''} onChange={(ev) => handlePaymentChange(e.id, 'amount', ev.target.value)} />
-                            <TextField label="Payment Date" type="date" size="small" InputLabelProps={{ shrink: true }} value={newPayments[e.id]?.paymentDate ?? ''} onChange={(ev) => handlePaymentChange(e.id, 'paymentDate', ev.target.value)} />
-                            <TextField label="Paid By" size="small" value={newPayments[e.id]?.paidBy ?? ''} onChange={(ev) => handlePaymentChange(e.id, 'paidBy', ev.target.value)} />
-                            <TextField label="Method" size="small" value={newPayments[e.id]?.paymentMethod ?? ''} onChange={(ev) => handlePaymentChange(e.id, 'paymentMethod', ev.target.value)} />
-                            <TextField label="Note" size="small" value={newPayments[e.id]?.note ?? ''} onChange={(ev) => handlePaymentChange(e.id, 'note', ev.target.value)} />
-                            <Button variant="contained" size="small" onClick={() => handleAddPayment(e.id)}>➕ Add Payment</Button>
+                          <TextField
+                              label="Amount"
+                              type="number"
+                              size="small"
+                              value={newPayments[e.id]?.amount ?? ''}
+                              onChange={(ev) => handlePaymentChange(e.id, 'amount', ev.target.value)}
+                              error={!!paymentErrors[e.id]}
+                              helperText={paymentErrors[e.id]}
+                            />
+                            <TextField label="Payment Date" type="date" size="small" InputLabelProps={{ shrink: true }} value={newPayments[e.id]?.paymentDate ?? ''} onChange={(ev) => handlePaymentChange(e.id, 'paymentDate', ev.target.value, e.amount, e.totalPaid || 0)} />
+                            <TextField label="Paid By" size="small" value={newPayments[e.id]?.paidBy ?? ''} onChange={(ev) => handlePaymentChange(e.id, 'paidBy', ev.target.value, e.amount, e.totalPaid || 0)} />
+                            <TextField label="Mode" size="small" value={newPayments[e.id]?.paymentMethod ?? ''} onChange={(ev) => handlePaymentChange(e.id, 'paymentMethod', ev.target.value, e.amount, e.totalPaid || 0)} />
+                            <TextField label="Note" size="small" value={newPayments[e.id]?.note ?? ''} onChange={(ev) => handlePaymentChange(e.id, 'note', ev.target.value, e.amount, e.totalPaid || 0)} />
+                            <Button  variant="contained"  size="small"  onClick={() => handleAddPayment(e.id)}  disabled={!!paymentErrors[e.id]}>  ➕ Add Payment</Button>                          
                           </Box>
                         </Box>
                       </TableCell>

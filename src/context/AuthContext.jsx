@@ -24,22 +24,23 @@ export const AuthProvider = ({ children }) => {
       const newToken = res.data.token;
       const returnedUsername = res.data.username || usernameInput;
       const returnedRole = res.data.role || 'USER';
-      console.log('returned role : ' , returnedRole);
-
+  
       setToken(newToken);
       setUsername(returnedUsername);
       setRole(returnedRole);
-
+  
       localStorage.setItem('token', newToken);
       localStorage.setItem('username', returnedUsername);
       localStorage.setItem('role', returnedRole);
     } catch (error) {
-      if (error.response?.status === 403) {
-        throw new Error('Unauthorized');
+      if (error.response) {
+        // Pass backend message directly to UI
+        throw new Error(error.response.data?.message || 'Login failed');
       }
       throw error;
     }
   };
+  
 
   const logout = () => {
     setToken(null);
