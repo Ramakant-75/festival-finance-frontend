@@ -1,5 +1,9 @@
 import React, { useState } from 'react';
-import { Box, Button, TextField, Typography, Alert, CircularProgress, useTheme } from '@mui/material';
+import {
+  Box, Button, TextField, Typography,
+  Alert, CircularProgress, useTheme, Fab, Tooltip
+} from '@mui/material';
+import HomeIcon from '@mui/icons-material/Home';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import MainLayout from '../layout/MainLayout';
@@ -16,26 +20,53 @@ const Login = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError(''); // reset error every attempt
+    setError('');
     setShowSignup(false);
     setLoading(true);
 
     try {
       await login(form.username, form.password);
-      navigate('/');
+      navigate('/home');
     } catch (err) {
-      const msg = err.message || 'Invalid credentials';
-      setError(msg);
-      if (msg.includes('sign up')) {
+      if (err.response && err.response.data && err.response.data.message) {
+        setError(err.response.data.message); // backend error
+      } else {
+        setError('Wrong credentials. But don’t worry, we’ve all forgotten worse things… like exes’ birthdays 👀');
+      }
+    
+      if (setError.toString().includes('sign up')) {
         setShowSignup(true);
       }
     } finally {
       setLoading(false);
-    }
+    }    
   };
 
   return (
     <MainLayout title="Login">
+      {/* Floating Home Button (bottom-right, subtle hover) */}
+      <Tooltip title="Go to Welcome Page">
+        <Fab
+          aria-label="Home"
+          color="primary"
+          onClick={() => navigate('/')}
+          sx={{
+            position: 'fixed',
+            right: 24,
+            bottom: 24,
+            zIndex: 2000,
+            boxShadow: '0 6px 16px rgba(0,0,0,0.25)',
+            transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+            '&:hover': {
+              transform: 'translateY(-2px) scale(1.06)',
+              boxShadow: '0 12px 24px rgba(0,0,0,0.25)',
+            },
+          }}
+        >
+          <HomeIcon />
+        </Fab>
+      </Tooltip>
+
       <Box
         maxWidth={400}
         mx="auto"

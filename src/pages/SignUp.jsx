@@ -1,5 +1,9 @@
 import React, { useState, useContext } from 'react';
-import { Box, Button, TextField, Typography, Alert, Snackbar, useTheme } from '@mui/material';
+import {
+  Box, Button, TextField, Typography, Alert,
+  Snackbar, useTheme, Fab, Tooltip
+} from '@mui/material';
+import HomeIcon from '@mui/icons-material/Home';
 import { AuthContext } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import api from '../api/axios';
@@ -7,7 +11,7 @@ import MainLayout from '../layout/MainLayout';
 
 const Signup = () => {
   const { signup } = useContext(AuthContext);
-  const theme = useTheme(); // 👈 get current theme
+  const theme = useTheme();
   const [form, setForm] = useState({ username: '', password: '', role: 'USER' });
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
@@ -45,8 +49,11 @@ const Signup = () => {
     }
 
     try {
-      await signup(form.username, form.password, form.role);
+      console.log('before sign up call');
+      await signup(form.username, form.password, 'N');
+      console.log('just after');
       setSuccess(true);
+      console.log('inside sign up');
       setTimeout(() => navigate('/login'), 2000);
     } catch (err) {
       setError('Signup failed. Please try again.');
@@ -55,6 +62,24 @@ const Signup = () => {
 
   return (
     <MainLayout title="Sign Up">
+      {/* Floating Home Button */}
+      <Tooltip title="Go to Welcome Page">
+        <Fab
+          color="primary"
+          sx={{
+            position: 'fixed',
+            bottom: 24,
+            right: 24,
+            zIndex: 2000,
+            transition: 'transform 0.2s ease-in-out',
+            '&:hover': { transform: 'scale(1.1)' }
+          }}
+          onClick={() => navigate('/')}
+        >
+          <HomeIcon />
+        </Fab>
+      </Tooltip>
+
       <Box
         maxWidth={400}
         mx="auto"
@@ -62,8 +87,8 @@ const Signup = () => {
         sx={{
           bgcolor: theme.palette.mode === 'light'
             ? 'rgba(255,255,255,0.85)'
-            : 'rgba(30,30,30,0.85)', // dark mode fix
-          color: theme.palette.text.primary, // adapt text color
+            : 'rgba(30,30,30,0.85)',
+          color: theme.palette.text.primary,
           borderRadius: 4,
           p: 4,
           backdropFilter: 'blur(10px)',

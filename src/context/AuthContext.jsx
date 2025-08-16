@@ -6,6 +6,7 @@ export const AuthContext = createContext();
 
 const INACTIVITY_LIMIT = 60000; // 1 min
 const WARNING_TIME = 10000; // 10s
+console.log('insinde auth context');
 
 export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(localStorage.getItem('token') || null);
@@ -13,6 +14,7 @@ export const AuthProvider = ({ children }) => {
   const [role, setRole] = useState(localStorage.getItem('role') || null);
   const [showWarning, setShowWarning] = useState(false);
   const [countdown, setCountdown] = useState(WARNING_TIME / 1000);
+  const [isActive, setIsActive] = useState(null);
 
   const logoutTimer = useRef();
   const warningTimer = useRef();
@@ -36,6 +38,27 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('role');
     localStorage.removeItem('lastActivity');
   };
+
+  const signup = async (usernameInput, password, isActive) => {
+    const res = await api.post('/auth/signup', { username: usernameInput, password, isActive });
+    // depending on backend, it may auto-login user or just return success
+  
+    // If backend logs user in after signup:
+    const newToken = res.data.token;
+    const returnedUsername = res.data.username || usernameInput;
+    const returnedRole = res.data.role || 'USER';
+  
+    setToken(newToken);
+    setUsername(returnedUsername);
+    setRole(returnedRole);
+    setIsActive(isActive);
+  
+    localStorage.setItem('token', newToken);
+    localStorage.setItem('username', returnedUsername);
+    localStorage.setItem('role', returnedRole);
+    localStorage.setItem('lastActivity', Date.now().toString());
+  };
+  
 
   const login = async (usernameInput, password) => {
     const res = await api.post('/auth/login', { username: usernameInput, password });
@@ -105,7 +128,7 @@ export const AuthProvider = ({ children }) => {
   }, [isAuthenticated]);
 
   return (
-    <AuthContext.Provider value={{ token, username, role, isAuthenticated, login, logout, showWarning, countdown }}>
+    <AuthContext.Provider value={{ token, username, role, isAuthenticated,signup, login, logout, showWarning, countdown }}>
       {children}
       {isAuthenticated && showWarning && (
         <Snackbar open anchorOrigin={{ vertical: 'top', horizontal: 'center' }}>

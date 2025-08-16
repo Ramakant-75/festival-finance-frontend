@@ -16,7 +16,7 @@ const PageHeader = () => {
         </IconButton>
       </Tooltip>
       <Tooltip title="Go Home">
-        <IconButton onClick={() => navigate('/')}>
+        <IconButton onClick={() => navigate('/home')}>
           <HomeIcon fontSize="large" />
         </IconButton>
       </Tooltip>

@@ -1,13 +1,28 @@
+// src/pages/Dashboard.jsx
 import React, { useEffect, useState } from 'react';
 import {
-  Grid, Button, Typography, Box, FormControl, InputLabel, Select, MenuItem, Card, CardContent
+  Grid,
+  Button,
+  Typography,
+  Box,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Card,
+  CardContent
 } from '@mui/material';
 import api from '../api/axios';
 import MainLayout from '../layout/MainLayout';
 import StatCard from '../components/StatCard';
 import PageHeader from '../components/PageHeader';
 import {
-  ResponsiveContainer, PieChart, Pie, Cell, Tooltip, Legend
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  Tooltip,
+  Legend
 } from 'recharts';
 import { saveAs } from 'file-saver';
 
@@ -48,75 +63,93 @@ const Dashboard = () => {
     value: val,
   }));
 
+  // total for percentage
+  const total = pieData.reduce((sum, entry) => sum + entry.value, 0);
+
   return (
     <MainLayout title="Festival Summary Dashboard">
-      <PageHeader />
+      <Box sx={{ mt: 8 }}>
+        <PageHeader />
 
-      {/* Filter & PDF button */}
-      <Box display="flex" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={2} px={3} mt={2}>
-        <FormControl size="small" sx={{ minWidth: 120 }}>
-          <InputLabel>Year</InputLabel>
-          <Select value={year} label="Year" onChange={(e) => setYear(e.target.value)}>
-            {yearOptions.map(y => <MenuItem key={y} value={y}>{y}</MenuItem>)}
-          </Select>
-        </FormControl>
+        {/* Filter & PDF button */}
+        <Box
+          display="flex"
+          justifyContent="space-between"
+          alignItems="center"
+          flexWrap="wrap"
+          gap={2}
+          px={3}
+          mt={2}
+        >
+          <FormControl size="small" sx={{ minWidth: 120 }}>
+            <InputLabel>Year</InputLabel>
+            <Select value={year} label="Year" onChange={(e) => setYear(e.target.value)}>
+              {yearOptions.map(y => <MenuItem key={y} value={y}>{y}</MenuItem>)}
+            </Select>
+          </FormControl>
 
-        {/* PDF Export button is now visible to all users */}
-        <Button variant="contained" onClick={handleGeneratePdf}>
-          📄 Generate Festival PDF Report
-        </Button>
+          <Button variant="contained" onClick={handleGeneratePdf}>
+            📄 Generate Festival PDF Report
+          </Button>
+        </Box>
+
+        {/* Summary Stats */}
+        <Grid container spacing={3} mt={2} px={3}>
+          <Grid item xs={12} md={4}>
+            <StatCard label="Total Donations" value={stats.totalDonations} />
+          </Grid>
+          <Grid item xs={12} md={4}>
+            <StatCard label="Total Expenses" value={stats.totalExpenses} />
+          </Grid>
+          <Grid item xs={12} md={4}>
+            <StatCard label="Balance" value={stats.balance} />
+          </Grid>
+        </Grid>
+
+        {/* Pie Chart */}
+        <Grid container spacing={1} mt={3} px={2} justifyContent="center">
+          <Grid item xs={12} md={12}> {/* full width now */}
+            <Card>
+              <CardContent>
+                <Typography variant="h5" gutterBottom align="center">
+                  🥧 Festival Expense Distribution by Category
+                </Typography>
+
+                <Box sx={{ width: '100%', height: 450 }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={pieData}
+                        dataKey="value"
+                        nameKey="name"
+                        cx="50%"
+                        cy="50%"
+                        innerRadius="35%"
+                        outerRadius="80%"   // bigger radius for horizontal scaling
+                        label={({ name, value, percent }) =>
+                          `${name}: ₹${value.toLocaleString()} (${(percent * 100).toFixed(1)}%)`
+                        }
+                        labelLine={true}
+                      >
+                        {pieData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={pieColors[index % pieColors.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        formatter={(value, name) => {
+                          const percent = ((value / total) * 100).toFixed(1);
+                          return [`₹${value.toLocaleString()} (${percent}%)`, name];
+                        }}
+                      />
+                      <Legend verticalAlign="bottom" height={36} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
+        </Grid>
       </Box>
-
-      {/* Summary Stats */}
-      <Grid container spacing={3} mt={2} px={3}>
-        <Grid item xs={12} md={4}>
-          <StatCard label="Total Donations" value={stats.totalDonations} />
-        </Grid>
-        <Grid item xs={12} md={4}>
-          <StatCard label="Total Expenses" value={stats.totalExpenses} />
-        </Grid>
-        <Grid item xs={12} md={4}>
-          <StatCard label="Balance" value={stats.balance} />
-        </Grid>
-      </Grid>
-
-      {/* Pie Chart */}
-      <Grid container spacing={3} mt={1} px={3} justifyContent="center">
-        <Grid item xs={12} md={10}>
-          <Card>
-            <CardContent>
-              <Typography variant="h5" gutterBottom align="center">
-                🥧 Festival Expense Distribution by Category
-              </Typography>
-
-              <Box sx={{ width: '100%', height: 400 }}>
-                <ResponsiveContainer>
-                  <PieChart>
-                    <Pie
-                      data={pieData}
-                      dataKey="value"
-                      nameKey="name"
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={140}
-                      label={({ name, value, percent }) =>
-                        `${name}: ₹${value.toLocaleString()} (${(percent * 100).toFixed(1)}%)`
-                      }
-                      labelLine={true}
-                    >
-                      {pieData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={pieColors[index % pieColors.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip formatter={(value) => `₹ ${value.toLocaleString()}`} />
-                    <Legend verticalAlign="bottom" height={36} />
-                  </PieChart>
-                </ResponsiveContainer>
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
     </MainLayout>
   );
 };

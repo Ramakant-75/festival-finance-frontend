@@ -32,7 +32,7 @@ const MainLayout = ({ title, children }) => {
 
   const handleLogout = () => {
     logout();
-    navigate('/login');
+    navigate('/');
   };
 
   // Hide navbar and warning on login/signup
@@ -63,7 +63,7 @@ const MainLayout = ({ title, children }) => {
 
       {/* Navbar */}
       {!hideNav && (
-        <AppBar position="static" elevation={0} sx={{
+        <AppBar position="fixed" elevation={0} sx={{
           backdropFilter: 'blur(10px)',
           background: 'rgba(255, 255, 255, 0.1)',
         }}>

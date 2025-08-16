@@ -1,0 +1,149 @@
+/* src/pages/WelcomePage.css */
+.welcome-container {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+  }
+  
+  .background-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  
+  .overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(to right, rgba(0,0,0,0.5), rgba(0,0,0,0.1));
+    display: flex;
+    align-items: center;
+    padding-left: 80px;
+  }
+  
+  .text-section {
+    color: white;
+    max-width: 600px;
+  }
+  
+  .text-section h1 {
+    font-size: 3rem;
+    margin-bottom: 20px;
+  }
+  
+  .text-section p {
+    font-size: 1.2rem;
+    margin-bottom: 30px;
+  }
+  
+  .buttons {
+    display: flex;
+    gap: 20px;
+  }
+  
+  .login-btn, .signup-btn {
+    padding: 12px 28px;
+    font-size: 1rem;
+    border: none;
+    cursor: pointer;
+    border-radius: 6px;
+    font-weight: bold;
+  }
+  
+  .login-btn {
+    background-color: white;
+    color: #1b2b40;
+  }
+  
+  .signup-btn {
+    background-color: #1b2b40;
+    color: white;
+  }
+  
+  /* Musical chords animation */
+  .musical-chord {
+    position: absolute;
+    font-size: 2rem;
+    color: #fffacd;
+    left: 20%;
+  }
+  /* Animated floating musical chords */
+.musical-chords {
+  position: absolute;
+  bottom: 80px; /* near flute */
+  left: 55%; /* adjust to match flute position */
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.musical-chords span {
+  font-size: 2rem;
+  color: #fffacd;
+  animation: floatUp 6s linear infinite;
+  opacity: 0.8;
+}
+
+.musical-chords span:nth-child(1) {
+  animation-delay: 0s;
+}
+.musical-chords span:nth-child(2) {
+  animation-delay: 2s;
+}
+.musical-chords span:nth-child(3) {
+  animation-delay: 4s;
+}
+.musical-chords span:nth-child(4) {
+  animation-delay: 6s;
+}
+
+@keyframes floatUp {
+  0% {
+    transform: translateY(0) scale(1);
+    opacity: 0;
+  }
+  20% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-300px) scale(1.5);
+    opacity: 0;
+  }
+}
+/* src/pages/WelcomePage.css */
+
+/* Shared button styles */
+.buttons button {
+  padding: 12px 28px;
+  border: none;
+  border-radius: 12px;
+  font-size: 18px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+/* Login Button */
+.login-btn {
+  background: #ff8c00; /* orange shade */
+  color: white;
+  margin-right: 16px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+}
+
+/* Signup Button */
+.signup-btn {
+  background: #4caf50; /* green shade */
+  color: white;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+}
+
+/* Hover effects */
+.login-btn:hover,
+.signup-btn:hover {
+  transform: translateY(-6px); /* float effect */
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
+}

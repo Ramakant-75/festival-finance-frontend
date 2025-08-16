@@ -21,7 +21,7 @@ const ProtectedRoute = ({ children, adminOnly = false }) => {
     }
   }, [token]);
 
-  if (!isAuthenticated) return <Navigate to="/login" />;
+  if (!isAuthenticated) return <Navigate to="/" />;
   if (loading) return null;
 
   if (adminOnly && userRole !== 'ADMIN') return <Navigate to="/" />;

@@ -1,5 +1,7 @@
+// src/App.jsx
 import React from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
+import { AnimatePresence } from 'framer-motion';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 
@@ -13,85 +15,112 @@ import ExpenseForm from './pages/ExpenseForm';
 import ManageExpenses from './pages/ManageExpenses';
 import ChatWidget from './components/ChatWidget';
 import AuditLogPage from './pages/AuditLogPage';
-import useUserRole from './hooks/useUserRole'; 
-import { ro } from 'date-fns/locale';
+import WelcomePage from './pages/WelcomePage';
+import PageTransition from './components/PageTransition';
+
+const AnimatedRoutes = () => {
+  const location = useLocation();
+
+  return (
+    <AnimatePresence mode="wait">
+      <Routes location={location} key={location.pathname}>
+        <Route path="/" element={<PageTransition><WelcomePage /></PageTransition>} />
+        <Route path="/login" element={<PageTransition><Login /></PageTransition>} />
+        <Route path="/signup" element={<PageTransition><Signup /></PageTransition>} />
+
+        <Route
+          path="/home"
+          element={
+            <ProtectedRoute>
+              <PageTransition>
+                <HomePage />
+                <ChatWidget />
+              </PageTransition>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/report"
+          element={
+            <ProtectedRoute>
+              <PageTransition>
+                <Dashboard />
+                <ChatWidget />
+              </PageTransition>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/donate"
+          element={
+            <ProtectedRoute>
+              <PageTransition>
+                <DonationForm />
+                <ChatWidget />
+              </PageTransition>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/manage-donations"
+          element={
+            <ProtectedRoute>
+              <PageTransition>
+                <ManageDonations />
+                <ChatWidget />
+              </PageTransition>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/expenses"
+          element={
+            <ProtectedRoute>
+              <PageTransition>
+                <ExpenseForm />
+                <ChatWidget />
+              </PageTransition>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/manage-expenses"
+          element={
+            <ProtectedRoute>
+              <PageTransition>
+                <ManageExpenses />
+                <ChatWidget />
+              </PageTransition>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/audit-logs"
+          element={
+            <ProtectedRoute adminOnly={true}>
+              <PageTransition>
+                <AuditLogPage />
+                <ChatWidget />
+              </PageTransition>
+            </ProtectedRoute>
+          }
+        />
+      </Routes>
+    </AnimatePresence>
+  );
+};
 
 function App() {
-  const role = useUserRole(); 
-  console.log('role 4 : ' , role);
   return (
     <BrowserRouter>
       <AuthProvider>
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="/signup" element={<Signup />} />
-
-          <Route
-            path="/"
-            element={
-              <ProtectedRoute>
-                <HomePage />
-                <ChatWidget />
-              </ProtectedRoute>
-            }
-          />
-
-            <Route
-              path="/report"
-              element={
-                <ProtectedRoute>
-                  <Dashboard />
-                  <ChatWidget />
-                </ProtectedRoute>
-              }
-            />
-
-          <Route
-            path="/donate"
-            element={
-              <ProtectedRoute>
-                <DonationForm />
-                <ChatWidget />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/manage-donations"
-            element={
-              <ProtectedRoute>
-                <ManageDonations />
-                <ChatWidget />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/expenses"
-            element={
-              <ProtectedRoute>
-                <ExpenseForm />
-                <ChatWidget />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/manage-expenses"
-            element={
-              <ProtectedRoute>
-                <ManageExpenses />
-                <ChatWidget />
-              </ProtectedRoute>
-            }
-          />
-            <Route
-              path="/audit-logs"
-              element={
-                <ProtectedRoute adminOnly={true}>
-                  <AuditLogPage />
-                  <ChatWidget />
-                </ProtectedRoute>
-              }
-            />
-        </Routes>
+        <AnimatedRoutes />
       </AuthProvider>
     </BrowserRouter>
   );
