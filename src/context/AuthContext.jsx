@@ -1,71 +1,119 @@
-// src/context/AuthContext.jsx
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import api from '../api/axios';
+import { Snackbar, Alert } from '@mui/material';
 
 export const AuthContext = createContext();
 
+const INACTIVITY_LIMIT = 60000; // 1 min
+const WARNING_TIME = 10000; // 10s
+
 export const AuthProvider = ({ children }) => {
-  const [token, setToken] = useState(null);
-  const [username, setUsername] = useState(null);
-  const [role, setRole] = useState(null);
+  const [token, setToken] = useState(localStorage.getItem('token') || null);
+  const [username, setUsername] = useState(localStorage.getItem('username') || null);
+  const [role, setRole] = useState(localStorage.getItem('role') || null);
+  const [showWarning, setShowWarning] = useState(false);
+  const [countdown, setCountdown] = useState(WARNING_TIME / 1000);
 
-  useEffect(() => {
-    const savedToken = localStorage.getItem('token');
-    const savedUsername = localStorage.getItem('username');
-    const savedRole = localStorage.getItem('role');
-    if (savedToken) setToken(savedToken);
-    if (savedUsername) setUsername(savedUsername);
-    if (savedRole) setRole(savedRole);
-  }, []);
+  const logoutTimer = useRef();
+  const warningTimer = useRef();
+  const countdownInterval = useRef();
 
-  const login = async (usernameInput, password) => {
-    try {
-      const res = await api.post('/auth/login', { username: usernameInput, password });
-      const newToken = res.data.token;
-      const returnedUsername = res.data.username || usernameInput;
-      const returnedRole = res.data.role || 'USER';
-  
-      setToken(newToken);
-      setUsername(returnedUsername);
-      setRole(returnedRole);
-  
-      localStorage.setItem('token', newToken);
-      localStorage.setItem('username', returnedUsername);
-      localStorage.setItem('role', returnedRole);
-    } catch (error) {
-      if (error.response) {
-        // Pass backend message directly to UI
-        throw new Error(error.response.data?.message || 'Login failed');
-      }
-      throw error;
-    }
+  const isAuthenticated = !!token;
+
+  const clearTimers = () => {
+    clearTimeout(logoutTimer.current);
+    clearTimeout(warningTimer.current);
+    clearInterval(countdownInterval.current);
   };
-  
 
   const logout = () => {
     setToken(null);
     setUsername(null);
     setRole(null);
+    clearTimers();
     localStorage.removeItem('token');
     localStorage.removeItem('username');
     localStorage.removeItem('role');
+    localStorage.removeItem('lastActivity');
   };
 
-  const signup = async (username, password, role = 'USER') => {
-    try {
-      const res = await api.post('/auth/signup', { username, password, role });
-      console.log("✅ User registered:", res.data);
-    } catch (error) {
-      console.error("❌ Signup error:", error);
-      throw new Error('Signup failed');
+  const login = async (usernameInput, password) => {
+    const res = await api.post('/auth/login', { username: usernameInput, password });
+    const newToken = res.data.token;
+    const returnedUsername = res.data.username || usernameInput;
+    const returnedRole = res.data.role || 'USER';
+
+    setToken(newToken);
+    setUsername(returnedUsername);
+    setRole(returnedRole);
+
+    localStorage.setItem('token', newToken);
+    localStorage.setItem('username', returnedUsername);
+    localStorage.setItem('role', returnedRole);
+    localStorage.setItem('lastActivity', Date.now().toString());
+  };
+
+  // Reset timers on activity
+  const resetTimers = () => {
+    if (!isAuthenticated) return;
+
+    clearTimers();
+    setShowWarning(false);
+    setCountdown(WARNING_TIME / 1000);
+
+    localStorage.setItem('lastActivity', Date.now().toString());
+
+    warningTimer.current = setTimeout(() => {
+      setShowWarning(true);
+      let timeLeft = WARNING_TIME / 1000;
+      setCountdown(timeLeft);
+
+      countdownInterval.current = setInterval(() => {
+        timeLeft -= 1;
+        setCountdown(timeLeft);
+        if (timeLeft <= 0) clearInterval(countdownInterval.current);
+      }, 1000);
+    }, INACTIVITY_LIMIT - WARNING_TIME);
+
+    logoutTimer.current = setTimeout(() => {
+      logout();
+    }, INACTIVITY_LIMIT);
+  };
+
+  // Setup event listeners for activity
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const events = ['mousemove', 'keydown', 'click'];
+    events.forEach(ev => window.addEventListener(ev, resetTimers));
+
+    // Restore lastActivity correctly on mount
+    const lastActivity = localStorage.getItem('lastActivity');
+    if (lastActivity) {
+      const diff = Date.now() - Number(lastActivity);
+      if (diff >= INACTIVITY_LIMIT) {
+        logout(); // session expired
+      } else {
+        resetTimers();
+      }
     }
-  };
 
-  const isAuthenticated = !!token;
+    return () => {
+      clearTimers();
+      events.forEach(ev => window.removeEventListener(ev, resetTimers));
+    };
+  }, [isAuthenticated]);
 
   return (
-    <AuthContext.Provider value={{ token, login, logout, signup, isAuthenticated, username, role }}>
+    <AuthContext.Provider value={{ token, username, role, isAuthenticated, login, logout, showWarning, countdown }}>
       {children}
+      {isAuthenticated && showWarning && (
+        <Snackbar open anchorOrigin={{ vertical: 'top', horizontal: 'center' }}>
+          <Alert severity="warning" sx={{ width: '100%' }}>
+            ⚠ You will be logged out in {countdown} seconds due to inactivity.
+          </Alert>
+        </Snackbar>
+      )}
     </AuthContext.Provider>
   );
 };
