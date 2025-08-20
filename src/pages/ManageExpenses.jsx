@@ -6,7 +6,7 @@ import {
   List, ListItem, ListItemText
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
-import { Download as DownloadIcon, Edit as EditIcon, Delete as DeleteIcon, Save as SaveIcon, Cancel as CancelIcon, UploadFile as UploadFileIcon } from '@mui/icons-material';
+import { Download as DownloadIcon, Edit as EditIcon, Delete as DeleteIcon, Save as SaveIcon, Cancel as CancelIcon, UploadFile as UploadFileIcon,Download } from '@mui/icons-material';
 import { saveAs } from 'file-saver';
 import api from '../api/axios';
 import MainLayout from '../layout/MainLayout';
@@ -384,13 +384,22 @@ const ManageExpenses = () => {
                                 <ListItem
                                   key={r.id}
                                   secondaryAction={
-                                    <IconButton
-                                      edge="end"
-                                      color="error"
-                                      onClick={() => handleDeleteReceipt(e.id, r.id)}
-                                    >
-                                      <DeleteIcon />
-                                    </IconButton>
+                                    <>
+                                      <IconButton
+                                        edge="end"
+                                        color="primary"
+                                        onClick={() => handleDownload(e.id, r.id, r.fileName)}
+                                      >
+                                        <Download />
+                                      </IconButton>
+                                      <IconButton
+                                        edge="end"
+                                        color="error"
+                                        onClick={() => handleDeleteReceipt(e.id, r.id)}
+                                      >
+                                        <DeleteIcon />
+                                      </IconButton>
+                                    </>
                                   }
                                 >
                                   <ListItemText primary={r.fileName} />
