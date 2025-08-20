@@ -54,7 +54,7 @@ const MainLayout = ({ title, children }) => {
     <div
       style={{
         minHeight: '100vh',
-        background: 'linear-gradient(135deg,rgb(99, 37, 88) 0%, #fcb69f 100%)',
+        background: 'linear-gradient(135deg,rgb(21, 133, 231) 0%,rgb(240, 241, 233) 100%)',
         backgroundAttachment: 'fixed',
         backgroundSize: 'cover',
       }}
