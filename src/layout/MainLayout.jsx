@@ -1,39 +1,128 @@
-import React, { useContext } from 'react';
-import { AppBar, Toolbar, Typography, IconButton, Box } from '@mui/material';
-import { Brightness4, Brightness7 } from '@mui/icons-material';
+import { useEffect, useState, useContext } from 'react';
+import {
+  AppBar, Toolbar, Typography, Box,
+  Container, IconButton, Tooltip, Snackbar, Alert
+} from '@mui/material';
+import LogoutIcon from '@mui/icons-material/Logout';
+import Brightness4Icon from '@mui/icons-material/Brightness4';
+import Brightness7Icon from '@mui/icons-material/Brightness7';
+import { useAuth } from '../context/AuthContext';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { ColorModeContext } from '../context/ThemeContext';
+import SanskritS from '../components/Logo';
+import api from '../api/axios';
 
-const MainLayout = ({ title = 'Society Festival Portal', children }) => {
+const INACTIVITY_LIMIT = 60000; // 1 min
+const WARNING_TIME = 10000; // 10s
+
+const MainLayout = ({ title, children }) => {
+  const { isAuthenticated, logout, username, showWarning, countdown } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
   const colorMode = useContext(ColorModeContext);
-  const currentMode = localStorage.getItem('themeMode') || 'light';
+  const currentTheme = localStorage.getItem('themeMode') || 'light';
+  const [env, setEnv] = useState('');
 
+  // Fetch environment info
+  useEffect(() => {
+    api.get('/env')
+      .then(res => setEnv(res.data.env))
+      .catch(() => setEnv('unknown'));
+  }, []);
+
+  const handleLogout = () => {
+    logout();
+    navigate('/');
+  };
+
+  // Hide navbar and warning on login/signup
+  const hideNav = ['/login', '/signup'].includes(location.pathname);
+
+  // Map env to colors (added helper for clarity & more envs)
+  const getEnvColor = (environment) => {
+    switch (environment) {
+      case 'local': return 'orange';
+      case 'dev': return 'blue';
+      case 'staging': return 'purple';
+      case 'prod': return 'red';
+      default: return 'gray';
+    }
+  };
+
+  // Auto logout warning & timers handled in AuthContext; we just render warning here
   return (
-    <>
-      <AppBar position="static" color="primary">
-        <Toolbar sx={{ display: 'flex', justifyContent: 'space-between' }}>
-          <Typography variant="h6" fontWeight="bold">{title}</Typography>
+    <div
+      style={{
+        minHeight: '100vh',
+        background: 'linear-gradient(135deg,rgb(99, 37, 88) 0%, #fcb69f 100%)',
+        backgroundAttachment: 'fixed',
+        backgroundSize: 'cover',
+      }}
+    >
+      {/* Environment Banner */}
+      {env && (
+        <Box sx={{
+          backgroundColor: getEnvColor(env),
+          color: 'white',
+          textAlign: 'center',
+          padding: '4px',
+          fontWeight: 'bold',
+          letterSpacing: '1px',
+          position: 'sticky',
+          top: 0,
+          zIndex: 1301
+        }}>
+          {env.toUpperCase()} ENVIRONMENT
+        </Box>
+      )}
 
-          <IconButton onClick={colorMode.toggleColorMode} color="inherit">
-            <Box sx={{ position: 'relative', width: 24, height: 24 }}>
-              <Brightness4 sx={{
-                position: 'absolute',
-                opacity: currentMode === 'light' ? 1 : 0,
-                transition: 'opacity 0.3s ease'
-              }} />
-              <Brightness7 sx={{
-                position: 'absolute',
-                opacity: currentMode === 'dark' ? 1 : 0,
-                transition: 'opacity 0.3s ease'
-              }} />
+      {/* Navbar */}
+      {!hideNav && (
+        <AppBar position="fixed" elevation={0} sx={{
+          backdropFilter: 'blur(10px)',
+          background: 'rgba(255, 255, 255, 0.1)',
+          top: env ? '28px' : 0 // push down if banner exists
+        }}>
+          <Toolbar sx={{ justifyContent: 'space-between' }}>
+            <Box display="flex" alignItems="center" gap={2} sx={{ cursor: 'pointer' }} onClick={() => navigate('/')}>
+              <SanskritS size={40} />
+              <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+                {title || 'Society Fest'}
+              </Typography>
             </Box>
-          </IconButton>
-        </Toolbar>
-      </AppBar>
+            <Box display="flex" alignItems="center" gap={2}>
+              {username && <Typography>{username}</Typography>}
+              <Tooltip title="Toggle Theme">
+                <IconButton color="inherit" onClick={colorMode.toggleColorMode}>
+                  {currentTheme === 'dark' ? <Brightness7Icon /> : <Brightness4Icon />}
+                </IconButton>
+              </Tooltip>
+              {isAuthenticated && (
+                <Tooltip title="Logout">
+                  <IconButton color="inherit" onClick={handleLogout}>
+                    <LogoutIcon />
+                  </IconButton>
+                </Tooltip>
+              )}
+            </Box>
+          </Toolbar>
+        </AppBar>
+      )}
 
-      <Box component="main" sx={{ py: 4 }}>
-        {children}
+      {/* Inactivity Warning Snackbar */}
+      {!hideNav && isAuthenticated && showWarning && (
+        <Snackbar open anchorOrigin={{ vertical: 'top', horizontal: 'center' }}>
+          <Alert severity="warning" sx={{ width: '100%' }}>
+            ⚠ You will be logged out in {countdown} seconds due to inactivity.
+          </Alert>
+        </Snackbar>
+      )}
+
+      {/* Page Content */}
+      <Box sx={{ py: 4, mt: hideNav ? 0 : 8 }}>
+        <Container>{children}</Container>
       </Box>
-    </>
+    </div>
   );
 };
 

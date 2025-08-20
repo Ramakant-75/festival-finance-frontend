@@ -1,8 +1,45 @@
 #root {
   max-width: 1280px;
   margin: 0 auto;
-  padding: 2rem;
+  padding: 0;
   text-align: center;
+}
+
+body {
+  margin: 0;
+  font-family: 'Roboto', sans-serif;
+  background: transparent;
+}
+
+/* Smooth fade-in for all content */
+* {
+  transition: all 0.3s ease;
+}
+
+/* Floating effect for buttons */
+.MuiButton-root {
+  transform: translateY(0);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.MuiButton-root:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.15);
+}
+
+/* Slide down animation for AppBar */
+@keyframes slideDown {
+  from {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.appbar-slide-down {
+  animation: slideDown 0.6s ease-out;
 }
 
 .logo {
@@ -27,16 +64,10 @@
   }
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  a:nth-of-type(2) .logo {
-    animation: logo-spin infinite 20s linear;
-  }
-}
-
 .card {
   padding: 2em;
 }
 
 .read-the-docs {
-  color: #888;
+  color: #888888;
 }
