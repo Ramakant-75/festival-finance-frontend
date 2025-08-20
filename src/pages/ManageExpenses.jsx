@@ -13,7 +13,7 @@ import PageHeader from '../components/PageHeader';
 
 const currentYear = new Date().getFullYear();
 const yearOptions = Array.from({ length: 10 }, (_, i) => currentYear - i);
-const categories = ["Murti", "Banjo", "Mandap", "Pooja Samagri", "Decoration", "Food", "Sound", "Lighting", "Misc"];
+const categories = ["Murti", "Banjo", "Mandap", "Pooja Samagri","Pavti Book", "Decoration", "Food", "Sound", "Lighting", "Misc"];
 const pageSizeOptions = [10, 20, 50];
 
 const ManageExpenses = () => {

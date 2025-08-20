@@ -9,7 +9,7 @@ import MainLayout from '../layout/MainLayout';
 import { format } from 'date-fns';
 import PageHeader from '../components/PageHeader';
 
-const categories = ["Murti", "Banjo", "Mandap", "Pooja Samagri", "Decoration", "Food", "Sound", "Lighting", "Misc"];
+const categories = ["Murti", "Banjo", "Mandap", "Pooja Samagri","Pavti Book", "Decoration", "Food", "Sound", "Lighting", "Misc"];
 
 const ExpenseForm = () => {
   const [formData, setFormData] = useState({

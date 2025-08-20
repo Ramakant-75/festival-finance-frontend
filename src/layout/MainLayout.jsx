@@ -38,6 +38,17 @@ const MainLayout = ({ title, children }) => {
   // Hide navbar and warning on login/signup
   const hideNav = ['/login', '/signup'].includes(location.pathname);
 
+  // Map env to colors (added helper for clarity & more envs)
+  const getEnvColor = (environment) => {
+    switch (environment) {
+      case 'local': return 'orange';
+      case 'dev': return 'blue';
+      case 'staging': return 'purple';
+      case 'prod': return 'red';
+      default: return 'gray';
+    }
+  };
+
   // Auto logout warning & timers handled in AuthContext; we just render warning here
   return (
     <div
@@ -51,13 +62,17 @@ const MainLayout = ({ title, children }) => {
       {/* Environment Banner */}
       {env && (
         <Box sx={{
-          backgroundColor: env === 'local' ? 'orange' : env === 'prod' ? 'red' : 'gray',
+          backgroundColor: getEnvColor(env),
           color: 'white',
           textAlign: 'center',
           padding: '4px',
-          fontWeight: 'bold'
+          fontWeight: 'bold',
+          letterSpacing: '1px',
+          position: 'sticky',
+          top: 0,
+          zIndex: 1301
         }}>
-          {env.toUpperCase()} INSTANCE
+          {env.toUpperCase()} ENVIRONMENT
         </Box>
       )}
 
@@ -66,6 +81,7 @@ const MainLayout = ({ title, children }) => {
         <AppBar position="fixed" elevation={0} sx={{
           backdropFilter: 'blur(10px)',
           background: 'rgba(255, 255, 255, 0.1)',
+          top: env ? '28px' : 0 // push down if banner exists
         }}>
           <Toolbar sx={{ justifyContent: 'space-between' }}>
             <Box display="flex" alignItems="center" gap={2} sx={{ cursor: 'pointer' }} onClick={() => navigate('/')}>
@@ -103,7 +119,7 @@ const MainLayout = ({ title, children }) => {
       )}
 
       {/* Page Content */}
-      <Box sx={{ py: 4 }}>
+      <Box sx={{ py: 4, mt: hideNav ? 0 : 8 }}>
         <Container>{children}</Container>
       </Box>
     </div>
