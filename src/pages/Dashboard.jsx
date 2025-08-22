@@ -34,6 +34,7 @@ const Dashboard = () => {
   const [stats, setStats] = useState(null);
   const [year, setYear] = useState(currentYear);
   const [userRole, setUserRole] = useState(null);
+  const [totalPaid, setTotalPaid] = useState(0); // ✅ new state
 
   useEffect(() => {
     api.get(`/stats/summary?year=${year}`).then(res => setStats(res.data));
@@ -44,6 +45,13 @@ const Dashboard = () => {
       .then(res => setUserRole(res.data.role))
       .catch(() => setUserRole(null));
   }, []);
+
+  // ✅ fetch totalPaid when year changes
+  useEffect(() => {
+    api.get(`/expenses/total-paid?year=${year}`)
+      .then(res => setTotalPaid(res.data))
+      .catch(() => setTotalPaid(0));
+  }, [year]);
 
   const handleGeneratePdf = async () => {
     try {
@@ -95,14 +103,17 @@ const Dashboard = () => {
 
         {/* Summary Stats */}
         <Grid container spacing={3} mt={2} px={3}>
-          <Grid item xs={12} md={4}>
+          <Grid item xs={12} md={3}>
             <StatCard label="Total Donations" value={stats.totalDonations} />
           </Grid>
-          <Grid item xs={12} md={4}>
+          <Grid item xs={12} md={3}>
             <StatCard label="Total Expenses" value={stats.totalExpenses} />
           </Grid>
-          <Grid item xs={12} md={4}>
+          <Grid item xs={12} md={3}>
             <StatCard label="Balance" value={stats.balance} />
+          </Grid>
+          <Grid item xs={12} md={3}>
+            <StatCard label="Total Paid" value={totalPaid} /> {/* ✅ new card */}
           </Grid>
         </Grid>
 
