@@ -57,6 +57,7 @@ const HomePage = () => {
             { label: 'Add Expense', icon: <MoneyOffIcon />, path: '/expenses' },
             { label: 'Manage Donations', icon: <BarChartIcon />, path: '/manage-donations' },
             { label: 'Manage Expenses', icon: <BarChartIcon />, path: '/manage-expenses' },
+            // { label: 'Stats & Milestones', icon: <BarChartIcon />, path: '/milestones' },
             ...(role === 'ROLE_ADMIN'
               ? [{ label: 'AUDIT LOGS', icon: <LocalGasStationSharp />, path: '/audit-logs' }]
               : []),

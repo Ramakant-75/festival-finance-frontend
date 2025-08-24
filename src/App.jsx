@@ -17,6 +17,7 @@ import ChatWidget from './components/ChatWidget';
 import AuditLogPage from './pages/AuditLogPage';
 import WelcomePage from './pages/WelcomePage';
 import PageTransition from './components/PageTransition';
+import StatsPage from './pages/StatsPage';
 
 const AnimatedRoutes = () => {
   const location = useLocation();
@@ -94,6 +95,18 @@ const AnimatedRoutes = () => {
             <ProtectedRoute>
               <PageTransition>
                 <ManageExpenses />
+                <ChatWidget />
+              </PageTransition>
+            </ProtectedRoute>
+          }
+        />
+
+<Route
+          path="/milestones"
+          element={
+            <ProtectedRoute>
+              <PageTransition>
+                <StatsPage />
                 <ChatWidget />
               </PageTransition>
             </ProtectedRoute>
