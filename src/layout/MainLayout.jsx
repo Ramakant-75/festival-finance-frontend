@@ -134,7 +134,9 @@ const MainLayout = ({ title, children }) => {
         )}
       {/* Page Content */}
       <Box sx={{ py: 4, mt: hideNav ? 0 : 8 }}>
-        <Container>{children}</Container>
+      <Container maxWidth={false} sx={{ px: 3 }}>
+          {children}
+        </Container>
       </Box>
     </div>
   );

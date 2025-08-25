@@ -14,7 +14,7 @@ import PageHeader from '../components/PageHeader';
 
 const currentYear = new Date().getFullYear();
 const yearOptions = Array.from({ length: 10 }, (_, i) => currentYear - i);
-const categories = ["Murti", "Banjo", "Mandap", "Pooja Samagri","Pavti Book", "Decoration", "Food", "Sound", "Lighting", "Fuel", "Misc"];
+const categories = ["Murti", "Banjo", "Mandap", "Pooja Samagri","Pavti Book", "Decoration", "Food", "Banner", "Fuel", "Misc"];
 const pageSizeOptions = [10, 20, 50];
 
 const ManageExpenses = () => {
@@ -36,6 +36,11 @@ const ManageExpenses = () => {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [totalPages, setTotalPages] = useState(0);
+  // NEW STATES FOR PAYMENT EDITING
+const [editPaymentId, setEditPaymentId] = useState(null);
+const [editedPayments, setEditedPayments] = useState({});
+const [paymentEditErrors, setPaymentEditErrors] = useState({});
+
 
   const [exportingBasic, setExportingBasic] = useState(false);
   const [exportingDetailed, setExportingDetailed] = useState(false);
@@ -214,6 +219,111 @@ const ManageExpenses = () => {
       [id]: [...(prev[id] || []), ...files]
     }));
   };  
+
+  // Handle field change when editing an existing payment
+const handleEditPaymentChange = (expense, paymentId, field, value) => {
+  setEditedPayments(prev => ({
+    ...prev,
+    [paymentId]: {
+      ...(prev[paymentId] || {}),
+      [field]: value
+    }
+  }));
+
+  if (field === "amount") {
+    const originalPayment = expense.payments.find(p => p.id === paymentId);
+    const maxAllowed = Number(expense.balanceAmount) + Number(originalPayment?.amount || 0);
+
+    if (Number(value) > maxAllowed) {
+      setPaymentEditErrors(prev => ({
+        ...prev,
+        [paymentId]: "❌ Payment cannot exceed balance amount"
+      }));
+    } else {
+      setPaymentEditErrors(prev => {
+        const ns = { ...prev };
+        delete ns[paymentId];
+        return ns;
+      });
+    }
+  }
+};
+
+// Save updated payment
+// Save updated payment (inline edit) and update row + top summary immediately
+const handleUpdatePayment = async (expenseId, paymentId) => {
+  if (paymentEditErrors[paymentId]) {
+    alert(paymentEditErrors[paymentId]);
+    return;
+  }
+
+  try {
+    const updatedPayment = editedPayments[paymentId];
+
+    // 1) Persist to backend
+    await api.put(`/expenses/${expenseId}/payments/${paymentId}`, updatedPayment);
+
+    // 2) Optimistically update local state so UI reflects immediately
+    setExpenses(prevExpenses => {
+      const updatedExpenses = prevExpenses.map(exp => {
+        if (exp.id !== expenseId) return exp;
+
+        const updatedPayments = (exp.payments || []).map(p =>
+          p.id === paymentId ? { ...p, ...updatedPayment } : p
+        );
+
+        // Your row "Total (₹)" uses exp.amount, so use that as the total amount.
+        const totalAmount = Number(exp.amount || 0);
+        const totalPaidExp = updatedPayments.reduce(
+          (sum, p) => sum + Number(p.amount || 0),
+          0
+        );
+        const balanceAmount = Math.max(totalAmount - totalPaidExp, 0);
+
+        // Your table uses e.totalPaid for the left side of "Paid / Balance"
+        return {
+          ...exp,
+          payments: updatedPayments,
+          totalPaid: totalPaidExp,
+          balanceAmount
+        };
+      });
+
+      // 3) Recalculate the top summary from the updated expenses
+      const newTotalPaid = updatedExpenses.reduce(
+        (sum, ex) => sum + Number(ex.totalPaid || 0),
+        0
+      );
+      const newTotalExpense = updatedExpenses.reduce(
+        (sum, ex) => sum + Number(ex.amount || 0),
+        0
+      );
+
+      // Use your existing state setters for the top summary bar
+      setTotalPaidSum(newTotalPaid);
+      setTotal(newTotalExpense);
+
+      return updatedExpenses;
+    });
+
+    // 4) UX cleanup
+    setSuccess(true);
+    setSuccessMessage("Payment updated successfully.");
+    setEditPaymentId(null);
+    setEditedPayments(prev => {
+      const ns = { ...prev };
+      delete ns[paymentId];
+      return ns;
+    });
+
+    // 5) Keep server truth in sync in the background (optional but safe)
+    fetchExpenses();
+    fetchTotal();
+    fetchTotalPaid();
+  } catch {
+    alert("Failed to update payment.");
+  }
+};
 
   return (
     <MainLayout title="Manage Expenses">
@@ -435,16 +545,108 @@ const ManageExpenses = () => {
                         <Box sx={{ mt: 1, p: 2, border: '1px solid', borderColor: theme.palette.divider, borderRadius: 1, bgcolor: theme.palette.mode === 'dark' ? 'grey.900' : 'grey.100' }}>
                           <Typography variant="subtitle1" gutterBottom>💳 Payments</Typography>
                           {e.payments?.length > 0 ? (
-                            <Box mb={2}>
-                              {e.payments.map((p, i) => (
-                                <Typography key={p.id} variant="body2">
-                                  #{i + 1}: ₹{p.amount} on {new Date(p.paymentDate).toLocaleDateString('en-IN')} by {p.paidBy || 'Unknown'} {p.paymentMethod && `via ${p.paymentMethod}`} {p.note && `– ${p.note}`}
-                                </Typography>
-                              ))}
-                            </Box>
-                          ) : (
-                            <Typography variant="body2" color="text.secondary" mb={2}>No payments recorded yet.</Typography>
-                          )}
+                              <Box mb={2}>
+                                {e.payments.map((p, i) => (
+                                  <Box
+                                    key={p.id}
+                                    display="flex"
+                                    alignItems="center"
+                                    gap={2}
+                                    sx={{ mb: 1 }}
+                                  >
+                                    {editPaymentId === p.id ? (
+                                      <>
+                                        <TextField
+                                          label="Amount"
+                                          size="small"
+                                          type="number"
+                                          value={editedPayments[p.id]?.amount ?? p.amount}
+                                          onChange={(ev) => handleEditPaymentChange(e, p.id, "amount", ev.target.value)}
+                                          error={!!paymentEditErrors[p.id]}
+                                          helperText={paymentEditErrors[p.id]}
+                                        />
+                                        <TextField
+                                          label="Date"
+                                          type="date"
+                                          size="small"
+                                          InputLabelProps={{ shrink: true }}
+                                          value={editedPayments[p.id]?.paymentDate ?? p.paymentDate?.split("T")[0]}
+                                          onChange={(ev) => handleEditPaymentChange(e, p.id, "paymentDate", ev.target.value)}
+                                        />
+                                        <TextField
+                                          label="Paid By"
+                                          size="small"
+                                          value={editedPayments[p.id]?.paidBy ?? p.paidBy}
+                                          onChange={(ev) => handleEditPaymentChange(e, p.id, "paidBy", ev.target.value)}
+                                        />
+                                        <TextField
+                                          label="Mode"
+                                          size="small"
+                                          value={editedPayments[p.id]?.paymentMethod ?? p.paymentMethod}
+                                          onChange={(ev) => handleEditPaymentChange(e, p.id, "paymentMethod", ev.target.value)}
+                                        />
+                                        <TextField
+                                          label="Note"
+                                          size="small"
+                                          value={editedPayments[p.id]?.note ?? p.note}
+                                          onChange={(ev) => handleEditPaymentChange(e, p.id, "note", ev.target.value)}
+                                        />
+                                        <IconButton
+                                          color="success"
+                                          onClick={() => handleUpdatePayment(e.id, p.id)}
+                                        >
+                                          <SaveIcon />
+                                        </IconButton>
+                                        <IconButton
+                                          color="error"
+                                          onClick={() => setEditPaymentId(null)}
+                                        >
+                                          <CancelIcon />
+                                        </IconButton>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Typography variant="body2">
+                                          #{i + 1}: ₹{p.amount} on {new Date(p.paymentDate).toLocaleDateString('en-IN')} by {p.paidBy || 'Unknown'} {p.paymentMethod && `via ${p.paymentMethod}`} {p.note && `– ${p.note}`}
+                                        </Typography>
+                                        <IconButton
+                                          size="small"
+                                          color="primary"
+                                          onClick={() => {
+                                            setEditPaymentId(p.id);
+                                            setEditedPayments(prev => ({ ...prev, [p.id]: p }));
+                                          }}
+                                        >
+                                          <EditIcon />
+                                        </IconButton>
+                                        {/* <IconButton
+                                          size="small"
+                                          color="error"
+                                          onClick={async () => {
+                                            if (window.confirm("Delete this payment?")) {
+                                              try {
+                                                await api.delete(`/expenses/${e.id}/payments/${p.id}`);
+                                                setSuccess(true);
+                                                setSuccessMessage("Payment deleted successfully.");
+                                                fetchExpenses();
+                                              } catch {
+                                                alert("Failed to delete payment.");
+                                              }
+                                            }
+                                          }}
+                                        >
+                                          <DeleteIcon />
+                                        </IconButton> */}
+                                      </>
+                                    )}
+                                  </Box>
+                                ))}
+                              </Box>
+                            ) : (
+                              <Typography variant="body2" color="text.secondary" mb={2}>
+                                No payments recorded yet.
+                              </Typography>
+                            )}
                           <Box display="flex" gap={2} flexWrap="wrap">
                             <TextField label="Amount" type="number" size="small" value={newPayments[e.id]?.amount ?? ''} onChange={(ev) => handlePaymentChange(e.id, 'amount', ev.target.value)} error={!!paymentErrors[e.id]} helperText={paymentErrors[e.id]} />
                             <TextField label="Payment Date" type="date" size="small" InputLabelProps={{ shrink: true }} value={newPayments[e.id]?.paymentDate ?? ''} onChange={(ev) => handlePaymentChange(e.id, 'paymentDate', ev.target.value)} />
