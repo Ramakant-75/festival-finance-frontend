@@ -30,6 +30,13 @@ export default function StatsPage() {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const { triggerCelebration } = useCelebration();
+  // Add new state for locked milestone dialog
+  const [lockedDialog, setLockedDialog] = useState({
+    open: false,
+    milestone: null,
+    remaining: 0
+  });
+
 
   const donationMilestones = [25000, 50000, 75000, 100000];
   // 🎯 Milestone definitions
@@ -406,18 +413,29 @@ dynamicMilestones.forEach((m, idx) => {
               gap={2}
               mt={3}
             >
-              {dynamicMilestones.map(m => {
-                const achieved = stats.totalDonations >= m;
-                return (
-                  <Chip
-                    key={m}
-                    label={milestoneNames[m]}   // ✅ use dynamic milestoneNames
-                    color={achieved ? "success" : "default"}
-                    variant={achieved ? "filled" : "outlined"}
-                    onClick={() => triggerCelebration(m)} // trigger only on click
-                  />
-                );
-              })}
+           {dynamicMilestones.map(m => {
+            const achieved = stats.totalDonations >= m;
+              return (
+                <Chip
+                  key={m}
+                  label={milestoneNames[m]}
+                  color={achieved ? "success" : "default"}
+                  variant={achieved ? "filled" : "outlined"}
+                onClick={() => {
+                  if (achieved) {
+                    triggerCelebration(m);
+                  } else {
+                    const remaining = m - stats.totalDonations;
+                    setLockedDialog({
+                      open: true,
+                      milestone: m,
+                      remaining
+                    });
+                  }
+                }}
+                />
+              );
+            })}
             </Box>
           </Box>
 
@@ -443,6 +461,30 @@ dynamicMilestones.forEach((m, idx) => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* 🔒 Locked milestone dialog */}
+          <Dialog
+            open={lockedDialog.open}
+            onClose={() => setLockedDialog({ ...lockedDialog, open: false })}
+          >
+            <DialogTitle>🔒 Milestone Locked</DialogTitle>
+            <DialogContent>
+              <Typography variant="h6">
+                {milestoneNames[lockedDialog.milestone]}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                You need <b>₹{lockedDialog.remaining.toLocaleString()}</b> more to unlock this milestone!
+              </Typography>
+            </DialogContent>
+            <DialogActions>
+              <Button
+                onClick={() => setLockedDialog({ ...lockedDialog, open: false })}
+                variant="outlined"
+              >
+                Got it 👍
+              </Button>
+            </DialogActions>
+          </Dialog>
     </Container>
     </MainLayout>
   );
