@@ -34,7 +34,7 @@ export default function StatsPage() {
   const donationMilestones = [25000, 50000, 75000, 100000];
   // 🎯 Milestone definitions
 const milestoneLabels = {
-  25000: "🥉 Bronze Collector",
+  25000: "🧱 Brick by Brick",
   50000: "🥈 Silver Supporter",
   75000: "🥇 Gold Giver",
   100000: "💎 Diamond Donor",
