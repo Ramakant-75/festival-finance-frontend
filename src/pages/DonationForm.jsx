@@ -1,12 +1,14 @@
-import { useState } from 'react';
-import React, { useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
-  Grid, TextField, MenuItem, Button, Typography, Snackbar, Alert, Paper, Box
+  Grid, TextField, MenuItem, Button, Typography, Snackbar, Alert, Paper, Box,
+  Dialog, DialogTitle, DialogContent, DialogActions
 } from '@mui/material';
 import api from '../api/axios';
 import MainLayout from '../layout/MainLayout';
 import { format } from 'date-fns';
 import PageHeader from '../components/PageHeader';
+import Confetti from 'react-confetti';
+import { useWindowSize } from 'react-use';
 
 const buildings = [
   { name: "D-1", floors: 2 },
@@ -29,8 +31,8 @@ const paymentModes = ["CASH", "CHEQUE", "UPI"];
 
 const DonationForm = () => {
   const [formData, setFormData] = useState({
-    isExternal: false,   // ✅ NEW FIELD
-    name: '',       // ✅ For external donors
+    isExternal: false,
+    name: '',
     building: '',
     floor: '',
     room: '',
@@ -46,6 +48,10 @@ const DonationForm = () => {
   }, []);
 
   const [success, setSuccess] = useState(false);
+  const [confetti, setConfetti] = useState(false);
+  const [openDialog, setOpenDialog] = useState(false);   // 🎉 New
+  const [latestMilestone, setLatestMilestone] = useState(null); // 🎉 New
+  const { width, height } = useWindowSize();
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -88,7 +94,6 @@ const DonationForm = () => {
 
     const { isExternal, name, building, floor, room, amount, paymentMode, date } = formData;
 
-    // ✅ VALIDATION CHECK
     if (!amount || !paymentMode || !date) {
       alert("Please fill in all required fields.");
       return;
@@ -105,7 +110,6 @@ const DonationForm = () => {
         return;
       }
 
-      // Check if donation already exists for this room in the same year
       const donationYear = new Date(date).getFullYear();
       const existsRes = await api.get(`/donations/exists?building=${building}&roomNumber=${room}&year=${donationYear}`);
       if (existsRes.data === true) {
@@ -115,7 +119,6 @@ const DonationForm = () => {
       }
     }
 
-    // ✅ Payload
     const payload = {
       isExternal,
       name: isExternal ? name : null,
@@ -128,8 +131,20 @@ const DonationForm = () => {
     };
 
     try {
-      await api.post('/donations', payload);
+      const res = await api.post('/donations', payload);
       setSuccess(true);
+
+      // ⚡ Check for unlocked milestones
+      if (res?.data?.unlockedMilestones?.length > 0) {
+        const latest = res.data.unlockedMilestones[res.data.unlockedMilestones.length - 1];
+        console.log("🎉 Milestone unlocked:", latest);
+        setLatestMilestone(latest);
+        setConfetti(true);   // instant confetti
+        setOpenDialog(true); // instant dialog
+        setTimeout(() => setConfetti(false), 6000);
+      }
+
+      // reset form
       setFormData({
         isExternal: false,
         name: '',
@@ -154,6 +169,16 @@ const DonationForm = () => {
 
   return (
     <MainLayout title="Add Donation Entry">
+      {/* ⚡ Confetti will now always have proper size */}
+      {confetti && (
+        <Confetti
+          width={width || window.innerWidth}
+          height={height || window.innerHeight}
+          recycle={false}
+          numberOfPieces={500}
+        />
+      )}
+
       <Paper elevation={3} sx={{ p: 4, maxWidth: 1200, mx: 'auto', mt: 4 }}>
         <PageHeader />
         <Typography variant="h5" gutterBottom>
@@ -166,8 +191,7 @@ const DonationForm = () => {
 
         <Box component="form" onSubmit={handleSubmit} noValidate sx={{ mt: 2 }}>
           <Grid container spacing={3}>
-
-            {/* ✅ Donor Type */}
+            {/* Donor Type */}
             <Grid item xs={12} sm={4}>
               <TextField
                 select fullWidth required label="Donor Type"
@@ -178,7 +202,7 @@ const DonationForm = () => {
               </TextField>
             </Grid>
 
-            {/* ✅ Conditional Fields */}
+            {/* Conditional Fields */}
             {formData.isExternal ? (
               <Grid item xs={12} sm={8}>
                 <TextField
@@ -251,7 +275,6 @@ const DonationForm = () => {
                 name="date" value={formData.date || ''}
                 onChange={(e) => setFormData({ ...formData, date: e.target.value })}
                 InputLabelProps={{ shrink: true }}
-                inputProps={{ placeholder: 'dd-MM-yyyy' }}
               />
             </Grid>
 
@@ -276,6 +299,24 @@ const DonationForm = () => {
           🎉 Donation submitted successfully!
         </Alert>
       </Snackbar>
+
+      {/* 🎉 Milestone Unlock Dialog */}
+      <Dialog open={openDialog} onClose={() => setOpenDialog(false)}>
+        <DialogTitle>🎉 Milestone Unlocked!</DialogTitle>
+        <DialogContent>
+          <Typography variant="h6">
+            You just unlocked the <b>₹{latestMilestone}</b> milestone 🚀
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Amazing contribution! Thank you for helping us reach this goal.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenDialog(false)} variant="contained">
+            Awesome 🎊
+          </Button>
+        </DialogActions>
+      </Dialog>
     </MainLayout>
   );
 };

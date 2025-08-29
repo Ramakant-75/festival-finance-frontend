@@ -85,7 +85,18 @@ const ManageDonations = () => {
       const payload = { ...editRow, amount: updatedAmount };
       delete payload.adjustment;
 
-      await api.put(`/donations/${editRow.id}`, payload);
+      // ✅ Call backend PUT API
+      const res = await api.put(`/donations/${editRow.id}`, payload);
+      const updatedDonation = res.data;
+
+      // ✅ Trigger global celebration if new milestone unlocked
+      if (updatedDonation?.unlockedMilestones?.length > 0) {
+        const latest = updatedDonation.unlockedMilestones.at(-1);
+        if (typeof window.triggerCelebration === "function") {
+          window.triggerCelebration(latest);
+        }
+      }
+
       setSuccess(true);
       setHighlightedId(editRow.id);
 
@@ -93,7 +104,8 @@ const ManageDonations = () => {
       fetchFilteredTotal(year, buildingFilter, paymentModeFilter, dateFilter, isExternalFilter);
 
       setTimeout(() => setHighlightedId(null), 3000);
-    } catch {
+    } catch (err) {
+      console.error("Error updating donation:", err);
       alert("Error updating donation.");
     }
   };
@@ -106,6 +118,7 @@ const ManageDonations = () => {
 
         <Paper elevation={2} sx={{ p: 3, mt: 2 }}>
           <Box display="flex" flexWrap="wrap" gap={2} alignItems="center">
+            {/* Filters */}
             <FormControl size="small" sx={{ minWidth: 140 }}>
               <InputLabel>Year</InputLabel>
               <Select value={year} label="Year" onChange={e => { setYear(e.target.value); setPage(1); }}>
@@ -133,22 +146,21 @@ const ManageDonations = () => {
 
             {/* NEW External/Internal Filter */}
             <FormControl size="small" sx={{ minWidth: 160 }}>
-                <InputLabel>Donor Type</InputLabel>
-                <Select
-                  value={isExternalFilter}
-                  label="Donor Type"
-                  onChange={e => {
-                    const val = e.target.value;
-                    setIsExternalFilter(val === "" ? "" : val === "true");
-                    setPage(1);
-                  }}
-                >
-                  <MenuItem value="">All</MenuItem>
-                  <MenuItem value="false">Internal</MenuItem>
-                  <MenuItem value="true">External</MenuItem>
-                </Select>
-              </FormControl>
-
+              <InputLabel>Donor Type</InputLabel>
+              <Select
+                value={isExternalFilter}
+                label="Donor Type"
+                onChange={e => {
+                  const val = e.target.value;
+                  setIsExternalFilter(val === "" ? "" : val === "true");
+                  setPage(1);
+                }}
+              >
+                <MenuItem value="">All</MenuItem>
+                <MenuItem value="false">Internal</MenuItem>
+                <MenuItem value="true">External</MenuItem>
+              </Select>
+            </FormControl>
 
             <LocalizationProvider dateAdapter={AdapterDateFns}>
               <DatePicker
@@ -202,8 +214,7 @@ const ManageDonations = () => {
             </Button>
           </Box>
 
-          {/* ... rest of your Table code stays unchanged ... */}
-
+          {/* Donations Table */}
           <Table size="small" sx={{ mt: 2 }}>
             <TableHead>
               <TableRow>
