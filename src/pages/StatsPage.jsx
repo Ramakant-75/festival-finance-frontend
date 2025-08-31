@@ -1,24 +1,7 @@
 // src/pages/StatsPage.jsx
 import React, { useEffect, useState } from "react";
-import {
-  Container,
-  Grid,
-  Card,
-  CardContent,
-  Typography,
-  Box,
-  Chip,
-  Avatar,
-  Divider,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Button,
-} from "@mui/material";
+import {Container,Grid,Card,CardContent,Typography,Box,Chip,Avatar,Divider,Dialog,DialogTitle,DialogContent,DialogActions,Button,} from "@mui/material";
 import EmojiEventsIcon from "@mui/icons-material/EmojiEvents";
-import EmojiEmotionsIcon from "@mui/icons-material/EmojiEmotions";
-import SentimentVeryDissatisfiedIcon from "@mui/icons-material/SentimentVeryDissatisfied";
 import api from "../api/axios";
 import MainLayout from "../layout/MainLayout";
 import PageHeader from '../components/PageHeader';
@@ -47,8 +30,6 @@ const milestoneLabels = {
   100000: "💎 Diamond Donor",
 };
 
-// Funny fallback names for >100k
-// Collective funny milestone titles
 const collectiveTitles = [
   "🧱 Brick by Brick",
   "🤝 Community Champions",
@@ -153,35 +134,12 @@ const collectiveTitles = [
       topDonors,
     };
   }
-
-  // 🎉 Confetti + milestone prompt
-  // const triggerCelebration = (milestone) => {
-  //   setLatestMilestone(milestone);
-  //   setOpenDialog(true);
-  //   setCelebrate(true);
-  //   setTimeout(() => setCelebrate(false), 4000);
-  // };
-
-    // 👇 expose to window so other components (like ManageDonations) can trigger it
     useEffect(() => {
       window.triggerCelebration = triggerCelebration;
       return () => {
         delete window.triggerCelebration; // cleanup on unmount
       };
     }, []);
-
-  // Auto-trigger celebration when milestones are crossed
-  // useEffect(() => {
-  //   if (stats) {
-  //     const achieved = donationMilestones.filter(m => stats.totalDonations >= m);
-  //     if (achieved.length > 0) {
-  //       const latest = achieved[achieved.length - 1];
-  //       triggerCelebration(latest);
-  //     }
-  //   }
-  // }, [stats]);
-
-  // Resize listener for confetti
   useEffect(() => {
     const handleResize = () => {
       setWindowSize({ width: window.innerWidth, height: window.innerHeight });
