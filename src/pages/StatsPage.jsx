@@ -1,6 +1,6 @@
 // src/pages/StatsPage.jsx
 import React, { useEffect, useState } from "react";
-import {Container,Grid,Card,CardContent,Typography,Box,Chip,Avatar,Divider,Dialog,DialogTitle,DialogContent,DialogActions,Button,} from "@mui/material";
+import {Container,Grid,Card,CardContent,Typography,Box,Chip,Avatar,Divider,Dialog,DialogTitle,DialogContent,DialogActions,Button,FormControl,InputLabel,Select,MenuItem} from "@mui/material";
 import EmojiEventsIcon from "@mui/icons-material/EmojiEvents";
 import api from "../api/axios";
 import MainLayout from "../layout/MainLayout";
@@ -13,6 +13,11 @@ export default function StatsPage() {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const { triggerCelebration } = useCelebration();
+  // Year filter state
+  const currentYear = new Date().getFullYear();
+  const [year, setYear] = useState(currentYear);
+  const availableYears = Array.from({ length: 5 }, (_, i) => currentYear - i);
+
   // Add new state for locked milestone dialog
   const [lockedDialog, setLockedDialog] = useState({
     open: false,
@@ -56,14 +61,14 @@ const collectiveTitles = [
 
   useEffect(() => {
     fetchStats();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [year]);
+  
 
   async function fetchStats() {
     setLoading(true);
     try {
       const params = { isExternal: false };
-      const res = await api.get("/stats/donations", { params });
+      const res = await api.get("/stats/donations", { params: { year } });
       const payload = res?.data ?? null;
       setStats(normalizeStats(payload));
     } catch (err) {
@@ -198,8 +203,25 @@ dynamicMilestones.forEach((m, idx) => {
     <MainLayout title="Stats & Milestones">
     <Container sx={{ mt: 4 }}>
     <PageHeader />
+        <Box display="flex" justifyContent="flex-end" mb={2}>
+      <FormControl size="small" sx={{ minWidth: 120 }}>
+        <InputLabel id="year-select-label">Year</InputLabel>
+        <Select
+          labelId="year-select-label"
+          value={year}
+          label="Year"
+          onChange={(e) => setYear(e.target.value)}
+        >
+          {availableYears.map((y) => (
+            <MenuItem key={y} value={y}>
+              {y}
+            </MenuItem>
+          ))}
+        </Select>
+      </FormControl>
+    </Box>
       <Typography variant="h3" gutterBottom>
-        🏆 Festival Leaderboard
+      🏆 Festival Leaderboard ({year})
       </Typography>
 
       <Grid container spacing={3}>
