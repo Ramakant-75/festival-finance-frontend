@@ -19,10 +19,10 @@ import CloseIcon from '@mui/icons-material/Close';
 import MinimizeIcon from '@mui/icons-material/Minimize';
 import { useTheme } from '@mui/material/styles';
 import axios from 'axios';
+import { useAuth } from '../context/AuthContext';
 
 const AI_ASSISTANT_URL = 'http://localhost:8085';
 
-// ── Storage helpers ───────────────────────────────────────────────────────────
 const KEYS = {
   open:      'chatOpen',
   minimized: 'chatMinimized',
@@ -41,7 +41,10 @@ const save = (key, value) => {
   try { localStorage.setItem(key, JSON.stringify(value)); } catch {}
 };
 
-// Welcome shown only when no real messages exist — never persisted
+const clearChatStorage = () => {
+  Object.values(KEYS).forEach(k => localStorage.removeItem(k));
+};
+
 const WELCOME = {
   sender: 'ai',
   isWelcome: true,
@@ -49,43 +52,48 @@ const WELCOME = {
 };
 
 const ChatWidget = () => {
+  const { isAuthenticated, username, token } = useAuth();
+
   const [open,      setOpen]      = useState(() => load(KEYS.open,      false));
   const [minimized, setMinimized] = useState(() => load(KEYS.minimized, false));
   const [messages,  setMessages]  = useState(() => load(KEYS.messages,  []));
-  const [input,     setInput]     = useState(() => load(KEYS.input,     ''));
+  const [input,     setInput]     = useState('');
   const [loading,   setLoading]   = useState(false);
 
   const scrollRef = useRef();
   const theme     = useTheme();
   const isDark    = theme.palette.mode === 'dark';
 
-  const authString = localStorage.getItem('auth') || '{}';
-  const auth       = JSON.parse(authString);
-  const sessionId  = auth?.username || 'guest';
+  // ── Reset chat immediately when user logs out (same window or other window) ─
+  // isAuthenticated comes directly from AuthContext — reacts instantly to logout,
+  // auto-logout, and session expiry without needing any localStorage polling
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setOpen(false);
+      setMinimized(false);
+      setMessages([]);
+      setInput('');
+      clearChatStorage();
+    }
+  }, [isAuthenticated]);
 
-  // ── Persist to localStorage on every change ───────────────────────────────
+  // ── Persist state changes to localStorage ─────────────────────────────────
   useEffect(() => { save(KEYS.open,      open);      }, [open]);
   useEffect(() => { save(KEYS.minimized, minimized); }, [minimized]);
-  useEffect(() => { save(KEYS.input,     input);     }, [input]);
   useEffect(() => {
-    // Never save the welcome message — only save real conversation messages
     save(KEYS.messages, messages.filter(m => !m.isWelcome));
   }, [messages]);
 
-  // ── Cross-window sync via storage event ───────────────────────────────────
-  // When another browser window/tab writes to localStorage (e.g. new message,
-  // open/close state), the browser fires a 'storage' event in every OTHER window.
-  // We listen to it and sync our React state so all windows stay identical.
+  // ── Cross-window sync — fires when OTHER windows change localStorage ───────
   const syncFromStorage = useCallback((e) => {
     if (!e.key || !Object.values(KEYS).includes(e.key)) return;
     try {
-      const newValue = e.newValue !== null ? JSON.parse(e.newValue) : null;
-      if (newValue === null) return;
+      const val = e.newValue !== null ? JSON.parse(e.newValue) : null;
+      if (val === null) return;
       switch (e.key) {
-        case KEYS.open:      setOpen(newValue);      break;
-        case KEYS.minimized: setMinimized(newValue); break;
-        case KEYS.messages:  setMessages(newValue);  break;
-        case KEYS.input:     setInput(newValue);     break;
+        case KEYS.open:      setOpen(val);      break;
+        case KEYS.minimized: setMinimized(val); break;
+        case KEYS.messages:  setMessages(val);  break;
         default: break;
       }
     } catch {}
@@ -95,20 +103,6 @@ const ChatWidget = () => {
     window.addEventListener('storage', syncFromStorage);
     return () => window.removeEventListener('storage', syncFromStorage);
   }, [syncFromStorage]);
-
-  // ── Reset on logout ───────────────────────────────────────────────────────
-  useEffect(() => {
-    if (!auth?.token || !auth?.username) {
-      const t = setTimeout(() => {
-        setOpen(false);
-        setMinimized(false);
-        setMessages([]);
-        setInput('');
-        Object.values(KEYS).forEach(k => localStorage.removeItem(k));
-      }, 100);
-      return () => clearTimeout(t);
-    }
-  }, [authString]);
 
   // ── Auto-scroll ───────────────────────────────────────────────────────────
   useEffect(() => {
@@ -134,7 +128,7 @@ const ChatWidget = () => {
       const response = await axios.post(
         `${AI_ASSISTANT_URL}/api/assistant/ask`,
         {
-          userId:   sessionId,
+          userId:   username || 'guest',
           question: question,
           history:  updatedMessages.slice(-10).map(m => ({
             sender: m.sender,
@@ -180,15 +174,12 @@ const ChatWidget = () => {
     if (text.error) {
       return <Typography variant="body2" color="error">{text.error}</Typography>;
     }
-
     if (typeof text === 'string') {
       return <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>{text}</Typography>;
     }
-
     if (text.value) {
       return <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>{text.value}</Typography>;
     }
-
     if (Array.isArray(text) && text.length > 0) {
       const keys = Object.keys(text[0]);
       return (
@@ -218,7 +209,6 @@ const ChatWidget = () => {
         </TableContainer>
       );
     }
-
     return (
       <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
         {JSON.stringify(text, null, 2)}
@@ -226,7 +216,9 @@ const ChatWidget = () => {
     );
   };
 
-  // Welcome shown only when no real messages yet
+  // ── Don't render anything if user is not logged in ────────────────────────
+  if (!isAuthenticated) return null;
+
   const displayMessages = messages.length === 0 ? [WELCOME] : messages;
 
   // ── Collapsed FAB ─────────────────────────────────────────────────────────
@@ -251,22 +243,21 @@ const ChatWidget = () => {
 
   // ── Chat panel ────────────────────────────────────────────────────────────
   return (
-    <Box
-      sx={{
-        position: 'fixed',
-        bottom: 20,
-        right: 20,
-        width: 340,
-        height: minimized ? 50 : 460,
-        bgcolor: isDark ? 'grey.900' : 'white',
-        borderRadius: 2,
-        boxShadow: 4,
-        display: 'flex',
-        flexDirection: 'column',
-        zIndex: 9999,
-        transition: 'height 0.3s ease',
-      }}
-    >
+    <Box sx={{
+      position: 'fixed',
+      bottom: 20,
+      right: 20,
+      width: 340,
+      height: minimized ? 50 : 460,
+      bgcolor: isDark ? 'grey.900' : 'white',
+      borderRadius: 2,
+      boxShadow: 4,
+      display: 'flex',
+      flexDirection: 'column',
+      zIndex: 9999,
+      transition: 'height 0.3s ease',
+    }}>
+
       {/* Header */}
       <Box sx={{
         p: 1,
