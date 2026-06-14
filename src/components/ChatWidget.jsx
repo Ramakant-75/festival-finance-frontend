@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Box,
   IconButton,
@@ -22,62 +22,79 @@ import axios from 'axios';
 
 const AI_ASSISTANT_URL = 'http://localhost:8085';
 
-// ── Persistence helpers — keep chat alive across page navigations ─────────────
-const STORAGE_KEYS = {
+// ── Storage helpers ───────────────────────────────────────────────────────────
+const KEYS = {
   open:      'chatOpen',
   minimized: 'chatMinimized',
   messages:  'chatMessages',
   input:     'chatInput',
 };
 
-const loadState = (key, fallback) => {
+const load = (key, fallback) => {
   try {
-    const saved = localStorage.getItem(key);
-    return saved !== null ? JSON.parse(saved) : fallback;
-  } catch {
-    return fallback;
-  }
+    const v = localStorage.getItem(key);
+    return v !== null ? JSON.parse(v) : fallback;
+  } catch { return fallback; }
 };
 
-const saveState = (key, value) => {
-  try {
-    localStorage.setItem(key, JSON.stringify(value));
-  } catch {}
+const save = (key, value) => {
+  try { localStorage.setItem(key, JSON.stringify(value)); } catch {}
 };
 
-// ── Welcome message constant — shown only when there are no messages yet ──────
+// Welcome shown only when no real messages exist — never persisted
 const WELCOME = {
   sender: 'ai',
+  isWelcome: true,
   text: '🙏 Jai Ganesh! Ask me anything about our festival finances — donations by building, expense breakdown, payment status, and more! You can ask multiple questions in one go too.',
-  isWelcome: true,   // flag so we never persist this to localStorage
 };
 
 const ChatWidget = () => {
-  // ── State — all initialised from localStorage so they survive page changes ──
-  const [open,      setOpen]      = useState(() => loadState(STORAGE_KEYS.open,      false));
-  const [minimized, setMinimized] = useState(() => loadState(STORAGE_KEYS.minimized, false));
-  const [messages,  setMessages]  = useState(() => loadState(STORAGE_KEYS.messages,  []));
-  const [input,     setInput]     = useState(() => loadState(STORAGE_KEYS.input,     ''));
+  const [open,      setOpen]      = useState(() => load(KEYS.open,      false));
+  const [minimized, setMinimized] = useState(() => load(KEYS.minimized, false));
+  const [messages,  setMessages]  = useState(() => load(KEYS.messages,  []));
+  const [input,     setInput]     = useState(() => load(KEYS.input,     ''));
   const [loading,   setLoading]   = useState(false);
 
-  const scrollRef   = useRef();
-  const theme       = useTheme();
-  const isDark      = theme.palette.mode === 'dark';
+  const scrollRef = useRef();
+  const theme     = useTheme();
+  const isDark    = theme.palette.mode === 'dark';
 
-  const authString  = localStorage.getItem('auth') || '{}';
-  const auth        = JSON.parse(authString);
-  const sessionId   = auth?.username || 'guest';
+  const authString = localStorage.getItem('auth') || '{}';
+  const auth       = JSON.parse(authString);
+  const sessionId  = auth?.username || 'guest';
 
-  // ── Persist every state change to localStorage ────────────────────────────
-  useEffect(() => { saveState(STORAGE_KEYS.open,      open);      }, [open]);
-  useEffect(() => { saveState(STORAGE_KEYS.minimized, minimized); }, [minimized]);
-  useEffect(() => { saveState(STORAGE_KEYS.input,     input);     }, [input]);
-
-  // Save messages — but exclude the transient welcome message
+  // ── Persist to localStorage on every change ───────────────────────────────
+  useEffect(() => { save(KEYS.open,      open);      }, [open]);
+  useEffect(() => { save(KEYS.minimized, minimized); }, [minimized]);
+  useEffect(() => { save(KEYS.input,     input);     }, [input]);
   useEffect(() => {
-    const toSave = messages.filter(m => !m.isWelcome);
-    saveState(STORAGE_KEYS.messages, toSave);
+    // Never save the welcome message — only save real conversation messages
+    save(KEYS.messages, messages.filter(m => !m.isWelcome));
   }, [messages]);
+
+  // ── Cross-window sync via storage event ───────────────────────────────────
+  // When another browser window/tab writes to localStorage (e.g. new message,
+  // open/close state), the browser fires a 'storage' event in every OTHER window.
+  // We listen to it and sync our React state so all windows stay identical.
+  const syncFromStorage = useCallback((e) => {
+    if (!e.key || !Object.values(KEYS).includes(e.key)) return;
+    try {
+      const newValue = e.newValue !== null ? JSON.parse(e.newValue) : null;
+      if (newValue === null) return;
+      switch (e.key) {
+        case KEYS.open:      setOpen(newValue);      break;
+        case KEYS.minimized: setMinimized(newValue); break;
+        case KEYS.messages:  setMessages(newValue);  break;
+        case KEYS.input:     setInput(newValue);     break;
+        default: break;
+      }
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    window.addEventListener('storage', syncFromStorage);
+    return () => window.removeEventListener('storage', syncFromStorage);
+  }, [syncFromStorage]);
 
   // ── Reset on logout ───────────────────────────────────────────────────────
   useEffect(() => {
@@ -87,21 +104,21 @@ const ChatWidget = () => {
         setMinimized(false);
         setMessages([]);
         setInput('');
-        Object.values(STORAGE_KEYS).forEach(k => localStorage.removeItem(k));
+        Object.values(KEYS).forEach(k => localStorage.removeItem(k));
       }, 100);
       return () => clearTimeout(t);
     }
   }, [authString]);
 
-  // ── Auto-scroll on new messages ───────────────────────────────────────────
+  // ── Auto-scroll ───────────────────────────────────────────────────────────
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, loading]);
 
-  const toggleChat     = () => setOpen(prev => !prev);
-  const toggleMinimize = () => setMinimized(prev => !prev);
+  const toggleChat     = () => setOpen(p => !p);
+  const toggleMinimize = () => setMinimized(p => !p);
 
-  // ── Send message — includes full conversation history for context chaining ─
+  // ── Send message ──────────────────────────────────────────────────────────
   const sendMessage = async () => {
     const question = input.trim();
     if (!question || loading) return;
@@ -119,8 +136,7 @@ const ChatWidget = () => {
         {
           userId:   sessionId,
           question: question,
-          // Send last 10 messages as context (5 turns) — agent uses this for chaining
-          history: updatedMessages.slice(-10).map(m => ({
+          history:  updatedMessages.slice(-10).map(m => ({
             sender: m.sender,
             text:   typeof m.text === 'object' ? JSON.stringify(m.text) : m.text,
           })),
@@ -145,9 +161,11 @@ const ChatWidget = () => {
         ...prev,
         {
           sender: 'ai',
-          text: detail
-            ? { value: `Error: ${detail}` }
-            : { value: 'The assistant is offline 😴 — make sure the Python server is running on port 8085.' },
+          text: {
+            value: detail
+              ? `Error: ${detail}`
+              : 'The assistant is offline 😴 — make sure the Python server is running on port 8085.',
+          },
         },
       ]);
     } finally {
@@ -155,7 +173,7 @@ const ChatWidget = () => {
     }
   };
 
-  // ── Render an AI answer — handles string, { value }, and table arrays ──────
+  // ── Render AI answer ──────────────────────────────────────────────────────
   const renderAnswer = (text) => {
     if (!text) return null;
 
@@ -164,19 +182,11 @@ const ChatWidget = () => {
     }
 
     if (typeof text === 'string') {
-      return (
-        <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
-          {text}
-        </Typography>
-      );
+      return <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>{text}</Typography>;
     }
 
     if (text.value) {
-      return (
-        <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
-          {text.value}
-        </Typography>
-      );
+      return <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>{text.value}</Typography>;
     }
 
     if (Array.isArray(text) && text.length > 0) {
@@ -216,12 +226,10 @@ const ChatWidget = () => {
     );
   };
 
-  // ── What to display — real messages, with welcome prepended if chat is empty
-  const displayMessages = messages.length === 0
-    ? [WELCOME]
-    : messages;
+  // Welcome shown only when no real messages yet
+  const displayMessages = messages.length === 0 ? [WELCOME] : messages;
 
-  // ── Collapsed button ──────────────────────────────────────────────────────
+  // ── Collapsed FAB ─────────────────────────────────────────────────────────
   if (!open) {
     return (
       <IconButton
@@ -260,23 +268,21 @@ const ChatWidget = () => {
       }}
     >
       {/* Header */}
-      <Box
-        sx={{
-          p: 1,
-          bgcolor: 'primary.main',
-          color: 'white',
-          borderRadius: minimized ? 2 : '8px 8px 0 0',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          flexShrink: 0,
-        }}
-      >
+      <Box sx={{
+        p: 1,
+        bgcolor: 'primary.main',
+        color: 'white',
+        borderRadius: minimized ? 2 : '8px 8px 0 0',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        flexShrink: 0,
+      }}>
         <Box>
           <Typography fontWeight="bold" fontSize={14}>🙏 Festival Finance AI</Typography>
           {!minimized && (
             <Typography fontSize={10} sx={{ opacity: 0.8 }}>
-              Powered by Llama3 · Ask about donations &amp; expenses
+              Powered by Llama3 · Synced across all windows
             </Typography>
           )}
         </Box>
@@ -290,19 +296,17 @@ const ChatWidget = () => {
         </Box>
       </Box>
 
-      {/* Chat body */}
+      {/* Messages */}
       {!minimized && (
-        <Box
-          sx={{
-            flex: 1,
-            p: 1,
-            overflowY: 'auto',
-            bgcolor: isDark ? 'grey.900' : '#f9f9f9',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 1,
-          }}
-        >
+        <Box sx={{
+          flex: 1,
+          p: 1,
+          overflowY: 'auto',
+          bgcolor: isDark ? 'grey.900' : '#f9f9f9',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 1,
+        }}>
           {displayMessages.map((msg, i) => (
             <Paper
               key={i}
@@ -331,30 +335,25 @@ const ChatWidget = () => {
           {loading && (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, pl: 1 }}>
               <CircularProgress size={14} />
-              <Typography variant="caption" color="text.secondary">
-                Thinking...
-              </Typography>
+              <Typography variant="caption" color="text.secondary">Thinking...</Typography>
             </Box>
           )}
-
           <div ref={scrollRef} />
         </Box>
       )}
 
       {/* Input */}
       {!minimized && (
-        <Box
-          sx={{
-            p: 1,
-            borderTop: '1px solid',
-            borderColor: isDark ? 'grey.700' : '#e0e0e0',
-            display: 'flex',
-            gap: 1,
-            bgcolor: isDark ? 'grey.900' : 'white',
-            borderRadius: '0 0 8px 8px',
-            flexShrink: 0,
-          }}
-        >
+        <Box sx={{
+          p: 1,
+          borderTop: '1px solid',
+          borderColor: isDark ? 'grey.700' : '#e0e0e0',
+          display: 'flex',
+          gap: 1,
+          bgcolor: isDark ? 'grey.900' : 'white',
+          borderRadius: '0 0 8px 8px',
+          flexShrink: 0,
+        }}>
           <TextField
             value={input}
             onChange={e => setInput(e.target.value)}
@@ -377,10 +376,7 @@ const ChatWidget = () => {
             color="primary"
             size="small"
           >
-            {loading
-              ? <CircularProgress size={18} />
-              : <SendIcon fontSize="small" />
-            }
+            {loading ? <CircularProgress size={18} /> : <SendIcon fontSize="small" />}
           </IconButton>
         </Box>
       )}

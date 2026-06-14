@@ -35,7 +35,6 @@ const AnimatedRoutes = () => {
             <ProtectedRoute>
               <PageTransition>
                 <HomePage />
-                <ChatWidget />
               </PageTransition>
             </ProtectedRoute>
           }
@@ -47,7 +46,6 @@ const AnimatedRoutes = () => {
             <ProtectedRoute>
               <PageTransition>
                 <Dashboard />
-                <ChatWidget />
               </PageTransition>
             </ProtectedRoute>
           }
@@ -59,7 +57,6 @@ const AnimatedRoutes = () => {
             <ProtectedRoute>
               <PageTransition>
                 <DonationForm />
-                <ChatWidget />
               </PageTransition>
             </ProtectedRoute>
           }
@@ -71,7 +68,6 @@ const AnimatedRoutes = () => {
             <ProtectedRoute>
               <PageTransition>
                 <ManageDonations />
-                <ChatWidget />
               </PageTransition>
             </ProtectedRoute>
           }
@@ -83,7 +79,6 @@ const AnimatedRoutes = () => {
             <ProtectedRoute>
               <PageTransition>
                 <ExpenseForm />
-                <ChatWidget />
               </PageTransition>
             </ProtectedRoute>
           }
@@ -95,19 +90,17 @@ const AnimatedRoutes = () => {
             <ProtectedRoute>
               <PageTransition>
                 <ManageExpenses />
-                <ChatWidget />
               </PageTransition>
             </ProtectedRoute>
           }
         />
 
-<Route
+        <Route
           path="/milestones"
           element={
             <ProtectedRoute>
               <PageTransition>
                 <StatsPage />
-                <ChatWidget />
               </PageTransition>
             </ProtectedRoute>
           }
@@ -119,7 +112,6 @@ const AnimatedRoutes = () => {
             <ProtectedRoute adminOnly={true}>
               <PageTransition>
                 <AuditLogPage />
-                <ChatWidget />
               </PageTransition>
             </ProtectedRoute>
           }
@@ -133,7 +125,10 @@ function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
+        {/* ── ChatWidget lives here — outside routes — so it NEVER unmounts ── */}
+        {/* It persists across all page navigations and stays in sync         */}
         <AnimatedRoutes />
+        <ChatWidget />
       </AuthProvider>
     </BrowserRouter>
   );
