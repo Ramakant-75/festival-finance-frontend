@@ -33,6 +33,7 @@ const Login = () => {
   });
 
   const [error, setError] = useState('');
+  const [additionalMessage, setAdditionalMessage] = useState('');
   const [showSignup, setShowSignup] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -46,6 +47,7 @@ const Login = () => {
     e.preventDefault();
 
     setError('');
+    setAdditionalMessage('');
     setShowSignup(false);
     setLoading(true);
 
@@ -53,12 +55,26 @@ const Login = () => {
       await login(form.username, form.password);
       navigate('/home');
     } catch (err) {
+      // Handle new error response structure
       if (
         err.response &&
-        err.response.data &&
-        err.response.data.message
+        err.response.data
       ) {
-        setError(err.response.data.message);
+        // New format: has mainMessage and additionalMessage
+        if (err.response.data.mainMessage) {
+          // Show main message prominently
+          setError(err.response.data.mainMessage);
+          // Show additional message below (sarcasm)
+          if (err.response.data.additionalMessage) {
+            setAdditionalMessage(err.response.data.additionalMessage);
+          }
+        }
+        // Fallback for old format: single message field
+        else if (err.response.data.message) {
+          setError(err.response.data.message);
+        } else {
+          setError('An error occurred during login. Please try again.');
+        }
       } else {
         setError(
           'Wrong credentials. Please check your username and password.'
@@ -149,20 +165,45 @@ const Login = () => {
         </Typography>
 
         {error && (
-          <Alert severity="error" sx={{ my: 2 }}>
-            {error}
+          <Box sx={{ my: 2 }}>
+            <Alert severity="error">
+              {error}
 
-            {showSignup && (
-              <Button
-                color="secondary"
-                onClick={() =>
-                  navigate('/signup')
-                }
+              {showSignup && (
+                <Button
+                  color="secondary"
+                  onClick={() =>
+                    navigate('/signup')
+                  }
+                >
+                  Sign up
+                </Button>
+              )}
+            </Alert>
+
+            {additionalMessage && (
+              <Typography
+                variant="body2"
+                sx={{
+                  mt: 1,
+                  p: 1.5,
+                  backgroundColor:
+                    theme.palette.mode === 'light'
+                      ? 'rgba(244, 67, 54, 0.1)'
+                      : 'rgba(244, 67, 54, 0.15)',
+                  borderRadius: 1,
+                  color:
+                    theme.palette.mode === 'light'
+                      ? 'rgba(0, 0, 0, 0.7)'
+                      : 'rgba(255, 255, 255, 0.8)',
+                  fontStyle: 'italic',
+                  borderLeft: '3px solid #f44336'
+                }}
               >
-                Sign up
-              </Button>
+                {additionalMessage}
+              </Typography>
             )}
-          </Alert>
+          </Box>
         )}
 
         <form onSubmit={handleSubmit}>
