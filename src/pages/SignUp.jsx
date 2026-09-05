@@ -1,7 +1,14 @@
 import React, { useState, useContext } from 'react';
 import {
-  Box, Button, TextField, Typography, Alert,
-  Snackbar, useTheme, Fab, Tooltip
+  Box,
+  Button,
+  TextField,
+  Typography,
+  Alert,
+  Snackbar,
+  useTheme,
+  Fab,
+  Tooltip
 } from '@mui/material';
 import HomeIcon from '@mui/icons-material/Home';
 import { AuthContext } from '../context/AuthContext';
@@ -12,21 +19,33 @@ import MainLayout from '../layout/MainLayout';
 const Signup = () => {
   const { signup } = useContext(AuthContext);
   const theme = useTheme();
-  const [form, setForm] = useState({ username: '', password: '', role: 'USER' });
+  const navigate = useNavigate();
+
+  const [form, setForm] = useState({
+    username: '',
+    mailId: '',
+    password: '',
+    role: 'USER'
+  });
+
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const [usernameAvailable, setUsernameAvailable] = useState(null);
   const [checking, setChecking] = useState(false);
-  const navigate = useNavigate();
 
   const checkUsername = async (username) => {
-    if (username.length < 3) {
+    if (username.length < 5) {
       setUsernameAvailable(null);
       return;
     }
+
     setChecking(true);
+
     try {
-      const res = await api.get(`/auth/check-username`, { params: { username } });
+      const res = await api.get('/auth/check-username', {
+        params: { username }
+      });
+
       setUsernameAvailable(res.data);
     } catch (err) {
       setUsernameAvailable(null);
@@ -35,28 +54,50 @@ const Signup = () => {
     }
   };
 
+  const validateEmail = (email) => {
+    const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return regex.test(email);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
 
     if (usernameAvailable === false) {
-      setError('❗ This username is already taken. Please choose a different one.');
+      setError(
+        '❗ This username is already taken. Please choose a different one.'
+      );
       return;
     }
+
     if (form.username.length < 5) {
       setError('❗ Username must be at least 5 characters.');
       return;
     }
 
+    if (!validateEmail(form.mailId)) {
+      setError('❗ Please enter a valid email address.');
+      return;
+    }
+
     try {
-      console.log('before sign up call');
-      await signup(form.username, form.password, 'N');
-      console.log('just after');
+      await signup(
+        form.username,
+        form.password,
+        form.mailId,
+        form.role
+      );
+
       setSuccess(true);
-      console.log('inside sign up');
-      setTimeout(() => navigate('/login'), 2000);
+
+      setTimeout(() => {
+        navigate('/login');
+      }, 2000);
     } catch (err) {
-      setError('Signup failed. Please try again.');
+      setError(
+        err.response?.data ||
+          'Signup failed. Please try again.'
+      );
     }
   };
 
@@ -72,7 +113,9 @@ const Signup = () => {
             right: 24,
             zIndex: 2000,
             transition: 'transform 0.2s ease-in-out',
-            '&:hover': { transform: 'scale(1.1)' }
+            '&:hover': {
+              transform: 'scale(1.1)'
+            }
           }}
           onClick={() => navigate('/')}
         >
@@ -85,9 +128,10 @@ const Signup = () => {
         mx="auto"
         mt={10}
         sx={{
-          bgcolor: theme.palette.mode === 'light'
-            ? 'rgba(255,255,255,0.85)'
-            : 'rgba(30,30,30,0.85)',
+          bgcolor:
+            theme.palette.mode === 'light'
+              ? 'rgba(255,255,255,0.85)'
+              : 'rgba(30,30,30,0.85)',
           color: theme.palette.text.primary,
           borderRadius: 4,
           p: 4,
@@ -95,8 +139,19 @@ const Signup = () => {
           boxShadow: '0 8px 32px rgba(0,0,0,0.2)'
         }}
       >
-        <Typography variant="h4" align="center" color="inherit">Sign Up</Typography>
-        {error && <Alert severity="error" sx={{ my: 2 }}>{error}</Alert>}
+        <Typography
+          variant="h4"
+          align="center"
+          color="inherit"
+        >
+          Sign Up
+        </Typography>
+
+        {error && (
+          <Alert severity="error" sx={{ my: 2 }}>
+            {error}
+          </Alert>
+        )}
 
         <form onSubmit={handleSubmit}>
           <TextField
@@ -107,11 +162,17 @@ const Signup = () => {
             value={form.username}
             onChange={async (e) => {
               const newUsername = e.target.value;
-              setForm({ ...form, username: newUsername });
+
+              setForm({
+                ...form,
+                username: newUsername
+              });
+
               await checkUsername(newUsername);
             }}
             helperText={
-              form.username.length > 0 && form.username.length < 5
+              form.username.length > 0 &&
+              form.username.length < 5
                 ? '❗ Username must be at least 5 characters long'
                 : checking
                 ? 'Checking availability...'
@@ -121,7 +182,26 @@ const Signup = () => {
                 ? '❌ Username is already taken'
                 : ''
             }
-            error={usernameAvailable === false || (form.username.length > 0 && form.username.length < 5)}
+            error={
+              usernameAvailable === false ||
+              (form.username.length > 0 &&
+                form.username.length < 5)
+            }
+          />
+
+          <TextField
+            label="Email Address"
+            type="email"
+            fullWidth
+            margin="normal"
+            required
+            value={form.mailId}
+            onChange={(e) =>
+              setForm({
+                ...form,
+                mailId: e.target.value
+              })
+            }
           />
 
           <TextField
@@ -131,7 +211,12 @@ const Signup = () => {
             margin="normal"
             required
             value={form.password}
-            onChange={e => setForm({ ...form, password: e.target.value })}
+            onChange={(e) =>
+              setForm({
+                ...form,
+                password: e.target.value
+              })
+            }
           />
 
           <Button
@@ -140,7 +225,9 @@ const Signup = () => {
             fullWidth
             sx={{ mt: 2 }}
             disabled={
-              usernameAvailable === false || checking || form.username.length < 5
+              usernameAvailable === false ||
+              checking ||
+              form.username.length < 5
             }
           >
             Sign Up
@@ -154,9 +241,17 @@ const Signup = () => {
           message="🎉 Signup successful! Redirecting to login..."
         />
 
-        <Typography variant="body2" align="center" mt={2} color="inherit">
+        <Typography
+          variant="body2"
+          align="center"
+          mt={2}
+          color="inherit"
+        >
           Already have an account?{' '}
-          <Button variant="text" onClick={() => navigate('/login')}>
+          <Button
+            variant="text"
+            onClick={() => navigate('/login')}
+          >
             Login here
           </Button>
         </Typography>
@@ -166,3 +261,4 @@ const Signup = () => {
 };
 
 export default Signup;
+
