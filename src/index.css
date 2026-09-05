@@ -66,4 +66,10 @@ button:focus-visible {
     background-color: #f9f9f9;
   }
 }
+@keyframes pulse {
+  0% { background-color: #d32f2f; }
+  50% { background-color: #ff5252; }
+  100% { background-color: #d32f2f; }
+}
+
 

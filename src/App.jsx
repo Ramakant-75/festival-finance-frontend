@@ -17,6 +17,7 @@ import ChatWidget from './components/ChatWidget';
 import AuditLogPage from './pages/AuditLogPage';
 import WelcomePage from './pages/WelcomePage';
 import PageTransition from './components/PageTransition';
+import StatsPage from './pages/StatsPage';
 
 const AnimatedRoutes = () => {
   const location = useLocation();
@@ -34,7 +35,6 @@ const AnimatedRoutes = () => {
             <ProtectedRoute>
               <PageTransition>
                 <HomePage />
-                <ChatWidget />
               </PageTransition>
             </ProtectedRoute>
           }
@@ -46,7 +46,6 @@ const AnimatedRoutes = () => {
             <ProtectedRoute>
               <PageTransition>
                 <Dashboard />
-                <ChatWidget />
               </PageTransition>
             </ProtectedRoute>
           }
@@ -58,7 +57,6 @@ const AnimatedRoutes = () => {
             <ProtectedRoute>
               <PageTransition>
                 <DonationForm />
-                <ChatWidget />
               </PageTransition>
             </ProtectedRoute>
           }
@@ -70,7 +68,6 @@ const AnimatedRoutes = () => {
             <ProtectedRoute>
               <PageTransition>
                 <ManageDonations />
-                <ChatWidget />
               </PageTransition>
             </ProtectedRoute>
           }
@@ -82,7 +79,6 @@ const AnimatedRoutes = () => {
             <ProtectedRoute>
               <PageTransition>
                 <ExpenseForm />
-                <ChatWidget />
               </PageTransition>
             </ProtectedRoute>
           }
@@ -94,7 +90,17 @@ const AnimatedRoutes = () => {
             <ProtectedRoute>
               <PageTransition>
                 <ManageExpenses />
-                <ChatWidget />
+              </PageTransition>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/milestones"
+          element={
+            <ProtectedRoute>
+              <PageTransition>
+                <StatsPage />
               </PageTransition>
             </ProtectedRoute>
           }
@@ -106,7 +112,6 @@ const AnimatedRoutes = () => {
             <ProtectedRoute adminOnly={true}>
               <PageTransition>
                 <AuditLogPage />
-                <ChatWidget />
               </PageTransition>
             </ProtectedRoute>
           }
@@ -120,7 +125,10 @@ function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
+        {/* ── ChatWidget lives here — outside routes — so it NEVER unmounts ── */}
+        {/* It persists across all page navigations and stays in sync         */}
         <AnimatedRoutes />
+        <ChatWidget />
       </AuthProvider>
     </BrowserRouter>
   );

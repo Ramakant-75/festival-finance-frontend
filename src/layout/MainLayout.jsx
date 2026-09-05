@@ -12,7 +12,7 @@ import { ColorModeContext } from '../context/ThemeContext';
 import SanskritS from '../components/Logo';
 import api from '../api/axios';
 
-const INACTIVITY_LIMIT = 60000; // 1 min
+const INACTIVITY_LIMIT = 90000; // 1 min
 const WARNING_TIME = 10000; // 10s
 
 const MainLayout = ({ title, children }) => {
@@ -54,7 +54,7 @@ const MainLayout = ({ title, children }) => {
     <div
       style={{
         minHeight: '100vh',
-        background: 'linear-gradient(135deg,rgb(99, 37, 88) 0%, #fcb69f 100%)',
+        background: 'linear-gradient(135deg,rgb(21, 133, 231) 0%,rgb(240, 241, 233) 100%)',
         backgroundAttachment: 'fixed',
         backgroundSize: 'cover',
       }}
@@ -111,16 +111,32 @@ const MainLayout = ({ title, children }) => {
 
       {/* Inactivity Warning Snackbar */}
       {!hideNav && isAuthenticated && showWarning && (
-        <Snackbar open anchorOrigin={{ vertical: 'top', horizontal: 'center' }}>
-          <Alert severity="warning" sx={{ width: '100%' }}>
+          <Box
+            sx={{
+              position: 'fixed',
+              top: env ? 60 : 30, // push below env + navbar if needed
+              left: 0,
+              width: '100%',
+              bgcolor: 'error.main',
+              color: 'white',
+              textAlign: 'center',
+              py: 2,
+              fontWeight: 'bold',
+              fontSize: '1.2rem',
+              letterSpacing: '1px',
+              zIndex: 2000,
+              animation: 'pulse 1.5s infinite',
+              boxShadow: '0 4px 10px rgba(0,0,0,0.2)',
+            }}
+          >
             ⚠ You will be logged out in {countdown} seconds due to inactivity.
-          </Alert>
-        </Snackbar>
-      )}
-
+          </Box>
+        )}
       {/* Page Content */}
       <Box sx={{ py: 4, mt: hideNav ? 0 : 8 }}>
-        <Container>{children}</Container>
+      <Container maxWidth={false} sx={{ px: 3 }}>
+          {children}
+        </Container>
       </Box>
     </div>
   );

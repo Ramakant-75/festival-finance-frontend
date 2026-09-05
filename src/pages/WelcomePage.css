@@ -147,3 +147,30 @@
   transform: translateY(-6px); /* float effect */
   box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
 }
+/* WelcomePage.css */
+
+.notice-banner {
+  background-color: #ffcc00;
+  color: black;
+  font-weight: bold;
+  overflow: hidden;
+  white-space: nowrap;
+  padding: 6px 0;
+}
+
+.scrolling-text {
+  display: inline-block;
+  padding-left: 100%;       /* start fully outside right */
+  animation: scroll-text 30s linear infinite;
+}
+
+.notice-item {
+  margin-right: 200px;      /* 👈 HUGE gap between notices */
+  display: inline-block;
+}
+
+@keyframes scroll-text {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-100%); }
+}
+

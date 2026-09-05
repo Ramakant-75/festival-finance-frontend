@@ -96,6 +96,9 @@ const AuditLogPage = () => {
                 <MenuItem value="EDIT_DONATION">EDIT_DONATION</MenuItem>
                 <MenuItem value="ADD_EXPENSE">ADD_EXPENSE</MenuItem>
                 <MenuItem value="EDIT_EXPENSE">EDIT_EXPENSE</MenuItem>
+                <MenuItem value="ADD_PAYMENT">ADD_PAYMENT</MenuItem>
+                <MenuItem value="EDIT_PAYMENT">EDIT_PAYMENT</MenuItem>
+                <MenuItem value="DELETE_RECEIPT">DELETE_RECEIPT</MenuItem>
               </Select>
             </FormControl>
           </Grid>

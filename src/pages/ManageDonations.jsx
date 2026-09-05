@@ -33,18 +33,20 @@ const ManageDonations = () => {
   const [buildingFilter, setBuildingFilter] = useState('');
   const [paymentModeFilter, setPaymentModeFilter] = useState('');
   const [dateFilter, setDateFilter] = useState(null);
+  const [isExternalFilter, setIsExternalFilter] = useState(''); // NEW
 
   useEffect(() => {
-    fetchDonations(year, page - 1, pageSize, buildingFilter, paymentModeFilter, dateFilter);
-    fetchFilteredTotal(year, buildingFilter, paymentModeFilter, dateFilter);
-  }, [year, page, pageSize, buildingFilter, paymentModeFilter, dateFilter]);
+    fetchDonations(year, page - 1, pageSize, buildingFilter, paymentModeFilter, dateFilter, isExternalFilter);
+    fetchFilteredTotal(year, buildingFilter, paymentModeFilter, dateFilter, isExternalFilter);
+  }, [year, page, pageSize, buildingFilter, paymentModeFilter, dateFilter, isExternalFilter]);
 
-  const fetchDonations = async (yr, pg, sz, building, paymentMode, date) => {
+  const fetchDonations = async (yr, pg, sz, building, paymentMode, date, isExternal) => {
     try {
       const params = { year: yr, page: pg, size: sz };
       if (building) params.building = building;
       if (paymentMode) params.paymentMode = paymentMode;
       if (date) params.date = date.toISOString().split('T')[0];
+      if (isExternal !== '') params.isExternal = isExternal; // pass only when chosen
       const res = await api.get('/donations', { params });
       setDonations(res.data.content);
       setTotalPages(res.data.totalPages);
@@ -54,12 +56,13 @@ const ManageDonations = () => {
     }
   };
 
-  const fetchFilteredTotal = async (yr, building, paymentMode, date) => {
+  const fetchFilteredTotal = async (yr, building, paymentMode, date, isExternal) => {
     try {
       const params = { year: yr };
       if (building) params.building = building;
       if (paymentMode) params.paymentMode = paymentMode;
       if (date) params.date = date.toISOString().split('T')[0];
+      if (isExternal !== '') params.isExternal = isExternal;
       const res = await api.get('/donations/total', { params });
       console.log('donations : ', res.data);
       setTotal(res.data || 0);
@@ -82,15 +85,27 @@ const ManageDonations = () => {
       const payload = { ...editRow, amount: updatedAmount };
       delete payload.adjustment;
 
-      await api.put(`/donations/${editRow.id}`, payload);
+      // ✅ Call backend PUT API
+      const res = await api.put(`/donations/${editRow.id}`, payload);
+      const updatedDonation = res.data;
+
+      // ✅ Trigger global celebration if new milestone unlocked
+      if (updatedDonation?.unlockedMilestones?.length > 0) {
+        const latest = updatedDonation.unlockedMilestones.at(-1);
+        if (typeof window.triggerCelebration === "function") {
+          window.triggerCelebration(latest);
+        }
+      }
+
       setSuccess(true);
       setHighlightedId(editRow.id);
 
-      fetchDonations(year, page - 1, pageSize, buildingFilter, paymentModeFilter, dateFilter);
-      fetchFilteredTotal(year, buildingFilter, paymentModeFilter, dateFilter);
+      fetchDonations(year, page - 1, pageSize, buildingFilter, paymentModeFilter, dateFilter, isExternalFilter);
+      fetchFilteredTotal(year, buildingFilter, paymentModeFilter, dateFilter, isExternalFilter);
 
       setTimeout(() => setHighlightedId(null), 3000);
-    } catch {
+    } catch (err) {
+      console.error("Error updating donation:", err);
       alert("Error updating donation.");
     }
   };
@@ -99,10 +114,11 @@ const ManageDonations = () => {
     <MainLayout title="Manage Donations">
       <Container maxWidth="lg" sx={{ mt: 6 }}>
         <PageHeader />
-        <Typography variant="h4" gutterBottom>🛠 Manage Room‑Wise Donations</Typography>
+        <Typography variant="h4" gutterBottom>🛠 Manage Room-Wise Donations</Typography>
 
         <Paper elevation={2} sx={{ p: 3, mt: 2 }}>
           <Box display="flex" flexWrap="wrap" gap={2} alignItems="center">
+            {/* Filters */}
             <FormControl size="small" sx={{ minWidth: 140 }}>
               <InputLabel>Year</InputLabel>
               <Select value={year} label="Year" onChange={e => { setYear(e.target.value); setPage(1); }}>
@@ -128,6 +144,24 @@ const ManageDonations = () => {
               </Select>
             </FormControl>
 
+            {/* NEW External/Internal Filter */}
+            <FormControl size="small" sx={{ minWidth: 160 }}>
+              <InputLabel>Donor Type</InputLabel>
+              <Select
+                value={isExternalFilter}
+                label="Donor Type"
+                onChange={e => {
+                  const val = e.target.value;
+                  setIsExternalFilter(val === "" ? "" : val === "true");
+                  setPage(1);
+                }}
+              >
+                <MenuItem value="">All</MenuItem>
+                <MenuItem value="false">Internal</MenuItem>
+                <MenuItem value="true">External</MenuItem>
+              </Select>
+            </FormControl>
+
             <LocalizationProvider dateAdapter={AdapterDateFns}>
               <DatePicker
                 label="Date"
@@ -140,6 +174,7 @@ const ManageDonations = () => {
             <Button size="small" onClick={() => {
               setBuildingFilter('');
               setPaymentModeFilter('');
+              setIsExternalFilter('');
               setDateFilter(null);
               setPage(1);
             }}>Reset Filters</Button>
@@ -164,7 +199,8 @@ const ManageDonations = () => {
                       year,
                       building: buildingFilter || undefined,
                       paymentMode: paymentModeFilter || undefined,
-                      date: dateFilter ? dateFilter.toISOString().split('T')[0] : undefined
+                      date: dateFilter ? dateFilter.toISOString().split('T')[0] : undefined,
+                      isExternal: isExternalFilter !== '' ? isExternalFilter : undefined
                     },
                     responseType: 'blob'
                   });
@@ -178,6 +214,7 @@ const ManageDonations = () => {
             </Button>
           </Box>
 
+          {/* Donations Table */}
           <Table size="small" sx={{ mt: 2 }}>
             <TableHead>
               <TableRow>
@@ -189,6 +226,8 @@ const ManageDonations = () => {
                 <TableCell>Date</TableCell>
                 <TableCell>Remarks</TableCell>
                 <TableCell>Adjust (±)</TableCell>
+                <TableCell>Donor Type</TableCell>   {/* NEW */}
+                <TableCell>Name</TableCell>         {/* NEW */}
                 <TableCell align="center">Action</TableCell>
               </TableRow>
             </TableHead>
@@ -197,25 +236,45 @@ const ManageDonations = () => {
                 const isEditing = editRow?.id === d.id;
                 const isHighlighted = highlightedId === d.id;
                 return (
-                  <TableRow key={d.id} sx={isHighlighted ? { backgroundColor: '#0fd69a' } : {}}>
+                  <TableRow
+                    key={d.id}
+                    sx={isHighlighted ? { backgroundColor: '#0fd69a' } : {}}
+                  >
                     <TableCell>{(page - 1) * pageSize + idx + 1}</TableCell>
-                    <TableCell>{d.building}</TableCell>
-                    <TableCell>{d.roomNumber}</TableCell>
+                    <TableCell>{d.building || '-'}</TableCell>
+                    <TableCell>{d.roomNumber || '-'}</TableCell>
                     <TableCell>₹ {d.amount}</TableCell>
                     <TableCell>
                       {isEditing ? (
                         <FormControl size="small" fullWidth>
-                          <Select value={editRow.paymentMode} onChange={e => handleEditChange(e, 'paymentMode')}>
-                            {["CASH", "CHEQUE", "UPI"].map(m => <MenuItem key={m} value={m}>{m}</MenuItem>)}
+                          <Select
+                            value={editRow.paymentMode}
+                            onChange={e => handleEditChange(e, 'paymentMode')}
+                          >
+                            {["CASH", "CHEQUE", "UPI"].map(m => (
+                              <MenuItem key={m} value={m}>
+                                {m}
+                              </MenuItem>
+                            ))}
                           </Select>
                         </FormControl>
-                      ) : d.paymentMode}
+                      ) : (
+                        d.paymentMode
+                      )}
                     </TableCell>
-                    <TableCell>{new Date(d.date).toLocaleDateString('en-IN')}</TableCell>
+                    <TableCell>
+                      {new Date(d.date).toLocaleDateString('en-IN')}
+                    </TableCell>
                     <TableCell>
                       {isEditing ? (
-                        <TextField size="small" value={editRow.remarks || ''} onChange={e => handleEditChange(e, 'remarks')} />
-                      ) : d.remarks}
+                        <TextField
+                          size="small"
+                          value={editRow.remarks || ''}
+                          onChange={e => handleEditChange(e, 'remarks')}
+                        />
+                      ) : (
+                        d.remarks
+                      )}
                     </TableCell>
                     <TableCell>
                       {isEditing ? (
@@ -226,13 +285,32 @@ const ManageDonations = () => {
                           onChange={e => handleEditChange(e, 'adjustment')}
                           placeholder="+/- ₹"
                         />
-                      ) : "-"}
+                      ) : (
+                        "-"
+                      )}
                     </TableCell>
+
+                    {/* NEW COLUMNS */}
+                    <TableCell>{d.isExternal ? "External" : "Member"}</TableCell>
+                    <TableCell>{d.isExternal ? d.name : "-"}</TableCell>
+
                     <TableCell align="center">
                       {isEditing ? (
-                        <Button size="small" variant="contained" onClick={handleSave}>💾 Save</Button>
+                        <Button
+                          size="small"
+                          variant="contained"
+                          onClick={handleSave}
+                        >
+                          💾 Save
+                        </Button>
                       ) : (
-                        <Button size="small" variant="outlined" onClick={() => setEditRow({ ...d, adjustment: 0 })}>✏️ Edit</Button>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          onClick={() => setEditRow({ ...d, adjustment: 0 })}
+                        >
+                          ✏️ Edit
+                        </Button>
                       )}
                     </TableCell>
                   </TableRow>
